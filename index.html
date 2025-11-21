@@ -223,7 +223,7 @@
     import { OrbitControls } from 'https://esm.sh/three@0.154.0/examples/jsm/controls/OrbitControls.js';
     import { STLExporter } from 'https://esm.sh/three@0.154.0/examples/jsm/exporters/STLExporter.js';
 
-    // --- CONSTANTES GLOBALES (comme dans ta version) ---
+    // --- CONSTANTES GLOBALES ---
     const LETTER_HEIGHT = 10;
     const BODY_THICKNESS = 4;
     const PLUG_COLOR = 0x808080;
@@ -265,7 +265,7 @@
     fillLight.position.set(-50, 20, -10);
     scene.add(fillLight);
 
-    // --- MATÉRIAUX (identiques à ton code de base) ---
+    // --- MATÉRIAUX ---
     const matPlastic = new THREE.MeshPhysicalMaterial({
         color: 0x1E90FF,
         roughness: 0.8,
@@ -297,6 +297,9 @@
 
     const mainGroup = new THREE.Group();
     scene.add(mainGroup);
+
+    // On ne recadre la caméra qu'une seule fois
+    let hasFittedOnce = false;
 
     // --- RÉFÉRENCES UI ---
     const elName = document.getElementById('inputName');
@@ -346,7 +349,7 @@
         controls.update();
     }
 
-    // --- GÉNÉRATION DU MODÈLE (reprend ta logique de base) ---
+    // --- GÉNÉRATION DU MODÈLE ---
     function generateUSB() {
         if (!currentFont) {
             elMsg.style.display = 'block';
@@ -446,8 +449,8 @@
         // ajoute au groupe principal
         mainGroup.add(pieceGroup);
 
-        // caméra recadrée sur la pièce
-        fitCameraToObject(mainGroup);
+        // ⚠️ NE PLUS RECENTRER LA CAMÉRA ICI
+        // fitCameraToObject(mainGroup);
     }
 
     // --- EXPORT STL ---
@@ -483,6 +486,12 @@
                 currentFont = font;
                 elMsg.style.display = 'none';
                 generateUSB();
+
+                // On ne recadre la caméra qu'une seule fois (au premier rendu)
+                if (!hasFittedOnce) {
+                    fitCameraToObject(mainGroup);
+                    hasFittedOnce = true;
+                }
             },
             undefined,
             function (err) {
@@ -511,10 +520,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-
-        if (mainGroup.children.length > 0) {
-            fitCameraToObject(mainGroup);
-        }
+        // On NE recadre PAS la caméra ici pour conserver le point de vue
     });
 
     // --- BOUCLE D’ANIMATION ---
@@ -529,6 +535,7 @@
     elMsg.style.display = 'block';
     changeFont('luckiest');
 </script>
+
 
 </body>
 </html>
