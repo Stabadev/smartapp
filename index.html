@@ -12,18 +12,15 @@
             margin: 0;
             overflow: hidden;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            /* Fond dégradé doux derrière la scène 3D */
             background: radial-gradient(circle at top, #ffffff 0%, #e0e7ff 45%, #c7d2fe 75%, #94a3b8 100%);
         }
 
-        /* Canvas plein écran */
         #canvas-container {
             position: fixed;
             inset: 0;
             z-index: 0;
         }
 
-        /* Panneau UI (droite, scrollable, mobile friendly) */
         #ui-container {
             position: fixed;
             top: 0;
@@ -40,12 +37,10 @@
             transition: transform 0.25s ease-out;
         }
 
-        /* Quand masqué (slider hors écran à droite) */
         #ui-container.hidden {
             transform: translateX(100%);
         }
 
-        /* Bouton flottant pour afficher / masquer l’UI (innov smartphone) */
         #toggle-ui {
             position: fixed;
             top: 10px;
@@ -135,13 +130,12 @@
             display: none;
         }
 
-        /* Mode paysage très bas (ex : smartphone couché) */
         @media (orientation: landscape) and (max-height: 500px) {
             #ui-container {
                 width: 210px;
                 height: 100vh;
                 padding: 10px;
-                padding-bottom: 80px; /* coussin de scroll pour le bas */
+                padding-bottom: 80px;
                 box-sizing: border-box;
                 background: rgba(255, 255, 255, 0.96);
                 box-shadow: -6px 0 14px rgba(0, 0, 0, 0.15);
@@ -166,7 +160,6 @@
 </head>
 <body>
 
-<!-- Bouton flottant pour afficher / cacher les contrôles -->
 <button id="toggle-ui">⚙</button>
 
 <div id="ui-container">
@@ -206,8 +199,31 @@
     </div>
 
     <div class="control-group">
+        <label>SYMBOLE</label>
+        <select id="selectSymbol">
+            <option value="none">Aucun symbole</option>
+            <option value="star">Étoile</option>
+            <option value="circle">Rond</option>
+            <option value="diamond">Losange</option>
+            <option value="heart">Cœur</option>
+            <option value="square">Carré</option>
+            <option value="triangle">Triangle</option>
+        </select>
+    </div>
+
+    <div class="control-group">
+        <label>MODE PORTE-CLÉ</label>
+        <select id="selectKeychain">
+            <option value="none">Sans porte-clé</option>
+            <option value="left_eyelet">Porte-clé (œillet à gauche)</option>
+        </select>
+    </div>
+
+
+
+    <div class="control-group">
         <label>ÉCARTEMENT DES LETTRES</label>
-        <input type="range" id="sliderGapRatio" min="0.85" max="1.05" step="0.01" value="0.95">
+        <input type="range" id="sliderGapRatio" min="0.85" max="1.3" step="0.01" value="0.95">
     </div>
 
     <div class="control-group">
@@ -217,7 +233,7 @@
 
     <div class="control-group">
         <label>HAUTEUR (Volume)</label>
-        <input type="range" id="sliderHeight" min="-2.5" max="2.5" step="0.1" value="0">
+        <input type="range" id="sliderHeight" min="-0.9" max="1" step="0.1" value="0">
     </div>
 
     <button id="exportStlButton">Télécharger STL</button>
@@ -233,15 +249,15 @@
     import { OrbitControls } from 'https://esm.sh/three@0.154.0/examples/jsm/controls/OrbitControls.js';
     import { STLExporter } from 'https://esm.sh/three@0.154.0/examples/jsm/exporters/STLExporter.js';
 
-    // --- CONSTANTES GLOBALES ---
     const LETTER_HEIGHT = 10;
     const BODY_THICKNESS = 4;
     const PLUG_COLOR = 0x808080;
-    const PLUG_THICKNESS = BODY_THICKNESS * 0.5; // gardé même si pas encore utilisé
+    const PLUG_THICKNESS = BODY_THICKNESS * 0.5;
 
-    // --- SCÈNE / CAMÉRA / RENDERER ---
+    const SYMBOL_EXTRUSION = 2.5;           // hauteur fixe du symbole
+    const SYMBOL_RADIUS_FACTOR = 0.35;      // taille symbole / hauteur lettre
+
     const scene = new THREE.Scene();
-    // on laisse la scène transparente pour voir le dégradé CSS
 
     const camera = new THREE.PerspectiveCamera(
         45,
@@ -255,13 +271,9 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-
-    // Amélioration du rendu global
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
-
-    // Ombres plus réalistes
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -273,7 +285,6 @@
     controls.rotateSpeed = 0.7;
     controls.zoomSpeed = 0.6;
 
-    // --- LUMIÈRES ---
     const ambLight = new THREE.AmbientLight(0xffffff, 0.55);
     scene.add(ambLight);
 
@@ -289,18 +300,14 @@
     mainLight.shadow.camera.bottom = -80;
     scene.add(mainLight);
 
-    // lumière de remplissage
     const fillLight = new THREE.DirectionalLight(0xffffff, 0.55);
     fillLight.position.set(-40, 40, -30);
     scene.add(fillLight);
 
-    // petit backlight pour des reflets sur les arrêtes
     const rimLight = new THREE.DirectionalLight(0xffffff, 0.35);
     rimLight.position.set(0, 60, -80);
     scene.add(rimLight);
 
-    // --- SOL (réception des ombres) ---
-    // IMPORTANT : pas dans mainGroup pour ne pas perturber export STL ni centrage
     const groundGeo = new THREE.PlaneGeometry(400, 400);
     const groundMat = new THREE.MeshStandardMaterial({
         color: 0xffffff,
@@ -309,11 +316,10 @@
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -BODY_THICKNESS * 1.2; // légèrement sous la base
+    ground.position.y = -BODY_THICKNESS * 1.2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // --- MATÉRIAUX ---
     const matPlastic = new THREE.MeshPhysicalMaterial({
         color: 0x1E90FF,
         roughness: 0.45,
@@ -335,9 +341,7 @@
         roughness: 0.35,
         metalness: 0.85
     });
-    // ground ne fait pas partie de mainGroup -> ne gêne pas le centrage / STL
 
-    // --- GESTION DES POLICES ---
     let currentFont = null;
     const fontLoader = new FontLoader();
     const fontsDatabase = {
@@ -348,10 +352,8 @@
     const mainGroup = new THREE.Group();
     scene.add(mainGroup);
 
-    // On ne recadre la caméra qu'une seule fois
     let hasFittedOnce = false;
 
-    // --- RÉFÉRENCES UI ---
     const elName = document.getElementById('inputName');
     const elFont = document.getElementById('selectFont');
     const elMsg = document.getElementById('loading-msg');
@@ -360,13 +362,13 @@
     const elRot = document.getElementById('sliderRot');
     const elHeight = document.getElementById('sliderHeight');
     const elGapRatio = document.getElementById('sliderGapRatio');
+    const elSymbol = document.getElementById('selectSymbol');
+    const elKeychain = document.getElementById('selectKeychain');
+
     const elExportStlButton = document.getElementById('exportStlButton');
     const toggleUIButton = document.getElementById('toggle-ui');
     const uiContainer = document.getElementById('ui-container');
 
-    // --- FONCTIONS UTILES ---
-
-    // centre un group autour de l'origine, sans changer sa forme
     function centerGroupAtOrigin(group) {
         const box = new THREE.Box3().setFromObject(group);
         if (box.isEmpty()) return;
@@ -375,7 +377,6 @@
         group.position.sub(center);
     }
 
-    // ajuste la caméra pour que l'objet soit bien dans le cadre
     function fitCameraToObject(object3D) {
         const box = new THREE.Box3().setFromObject(object3D);
         if (box.isEmpty()) return;
@@ -388,7 +389,7 @@
         const maxDim = Math.max(size.x, size.y, size.z);
         const fov = camera.fov * (Math.PI / 180);
         let dist = (maxDim / 2) / Math.tan(fov / 2);
-        dist *= 1.4; // petite marge
+        dist *= 1.4;
 
         camera.position.set(center.x, center.y + dist * 0.25, center.z + dist);
         camera.near = dist / 10;
@@ -399,7 +400,164 @@
         controls.update();
     }
 
-    // --- GÉNÉRATION DU MODÈLE ---
+    // Tous les symboles sont des Shape extrudés → à plat comme les lettres
+    function createSymbolMesh(type) {
+        const r = LETTER_HEIGHT * SYMBOL_RADIUS_FACTOR;
+        let shape = null;
+
+        if (type === 'star') {
+            const innerRadius = r * 0.45;
+            shape = new THREE.Shape();
+            const numPoints = 5;
+            for (let i = 0; i < numPoints * 2; i++) {
+                const angle = (i / (numPoints * 2)) * Math.PI * 2;
+                const radius = (i % 2 === 0) ? r : innerRadius;
+                const x = Math.cos(angle) * radius;
+                const y = Math.sin(angle) * radius;
+                if (i === 0) shape.moveTo(x, y);
+                else shape.lineTo(x, y);
+            }
+            shape.closePath();
+        } else if (type === 'circle') {
+            shape = new THREE.Shape();
+            shape.absarc(0, 0, r, 0, Math.PI * 2, false);
+        } else if (type === 'diamond') {
+            shape = new THREE.Shape();
+            shape.moveTo(0, r);
+            shape.lineTo(r, 0);
+            shape.lineTo(0, -r);
+            shape.lineTo(-r, 0);
+            shape.closePath();
+        } else if (type === 'square') {
+            shape = new THREE.Shape();
+            const s = r;
+            shape.moveTo(-s, -s);
+            shape.lineTo(s, -s);
+            shape.lineTo(s, s);
+            shape.lineTo(-s, s);
+            shape.closePath();
+        } else if (type === 'triangle') {
+            shape = new THREE.Shape();
+            const h = r * 1.1;
+            shape.moveTo(0, h);
+            shape.lineTo(-r, -h * 0.4);
+            shape.lineTo(r, -h * 0.4);
+            shape.closePath();
+        } else if (type === 'heart') {
+            shape = new THREE.Shape();
+            const x = 0, y = 0;
+            const hr = r;
+            shape.moveTo(x, y + hr * 0.6);
+            shape.bezierCurveTo(
+                x + hr, y + hr * 1.4,
+                x + hr * 1.6, y,
+                x, y - hr
+            );
+            shape.bezierCurveTo(
+                x - hr * 1.6, y,
+                x - hr, y + hr * 1.4,
+                x, y + hr * 0.6
+            );
+        }
+
+        if (!shape) return null;
+
+        const extrudeSettings = {
+            depth: SYMBOL_EXTRUSION,
+            bevelEnabled: false
+        };
+
+        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geo.center();
+
+        const mesh = new THREE.Mesh(geo, matPlastic);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        // Aligné comme les lettres : posé à plat sur le socle
+        mesh.rotation.x = -Math.PI / 2;
+
+        return mesh;
+    }
+
+    // Base rectangulaire, avec ou sans chanfrein
+ function createBaseMesh(bodyW, bodyZDepth) {
+    const geo = new THREE.BoxGeometry(bodyW, BODY_THICKNESS, bodyZDepth);
+    const mesh = new THREE.Mesh(geo, matBody);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+}
+
+
+    // Oeillet de porte-clé à gauche, même largeur (Z) que la base
+function createKeychainEyeletLeft(bodyW, bodyZDepth, centerXOffset) {
+    const tabW = BODY_THICKNESS * 3.2;        // longueur de la languette (en X)
+    const tabZ = bodyZDepth;                  // même largeur que la base (en Z)
+    const halfW = tabW / 2;
+    const halfZ = tabZ / 2;
+
+    const shape = new THREE.Shape();
+
+    // --- Paramètres du trou (on garde ta logique) ---
+    const holeRadius = Math.min(halfW, halfZ) * 0.55;
+    const holeCenterX = -halfW * -0.15;   // = +0.15 * halfW
+
+    // Rayon des coins arrondis côté GAUCHE uniquement
+    const cornerRadius = Math.min(holeRadius, halfZ * 0.6);
+
+    // --- Contour avec côtés droits à droite, arrondis à gauche ---
+
+    // On part en bas à droite
+    shape.moveTo(halfW, -halfZ);
+
+    // Côté droit (vertical, sans arrondi)
+    shape.lineTo(halfW, halfZ);
+
+    // Bord haut, de droite vers gauche jusqu'au début de l'arrondi
+    shape.lineTo(-halfW + cornerRadius, halfZ);
+
+    // Arrondi coin haut-gauche
+    shape.quadraticCurveTo(-halfW, halfZ, -halfW, halfZ - cornerRadius);
+
+    // Côté gauche, vers le bas jusqu'au début de l'arrondi bas
+    shape.lineTo(-halfW, -halfZ + cornerRadius);
+
+    // Arrondi coin bas-gauche
+    shape.quadraticCurveTo(-halfW, -halfZ, -halfW + cornerRadius, -halfZ);
+
+    // Bord bas, retour vers la droite
+    shape.lineTo(halfW, -halfZ);
+
+    shape.closePath();
+
+    // --- Trou circulaire (comme tu l'avais) ---
+    const hole = new THREE.Path();
+    hole.absarc(holeCenterX, 0, holeRadius, 0, Math.PI * 2, false);
+    shape.holes.push(hole);
+
+    const extrudeSettings = {
+        depth: BODY_THICKNESS,
+        bevelEnabled: false
+    };
+
+    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    geo.center();
+
+    const mesh = new THREE.Mesh(geo, matBody);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    // posé à plat
+    mesh.rotation.x = -Math.PI / 2;
+
+    // position : collé au bord GAUCHE du socle
+    const tabCenterX = centerXOffset - bodyW / 2 - halfW * 0.7; // léger chevauchement
+    mesh.position.set(tabCenterX, BODY_THICKNESS / 2, 0);
+
+    return mesh;
+}
+
     function generateUSB() {
         if (!currentFont) {
             elMsg.style.display = 'block';
@@ -407,11 +565,9 @@
         }
         elMsg.style.display = 'none';
 
-        // Mise à jour couleurs
         matPlastic.color.set(elColorText.value);
         matBody.color.set(elColorBody.value);
 
-        // Nettoyage de l'ancien modèle
         while (mainGroup.children.length > 0) {
             const obj = mainGroup.children[0];
             if (obj.geometry) obj.geometry.dispose();
@@ -426,6 +582,9 @@
         const rotVal = parseFloat(elRot.value);
         const heightVal = parseFloat(elHeight.value);
         const gapRatio = parseFloat(elGapRatio.value);
+        const symbolType = elSymbol.value;
+        const keychainMode = elKeychain.value;
+
 
         let currentX = 0;
         const lettersGroup = new THREE.Group();
@@ -452,7 +611,6 @@
             const xSize = textGeo.boundingBox.max.x - textGeo.boundingBox.min.x;
             const ySize = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
 
-            // centrage
             textGeo.translate(-xSize / 2, -ySize / 2, 0);
             textGeo.center();
 
@@ -469,9 +627,23 @@
             currentX += (xSize * gapRatio);
         }
 
-        // largeur de toutes les lettres
-        const bbox = new THREE.Box3().setFromObject(lettersGroup);
-        const wideX = bbox.max.x - bbox.min.x;
+        const lettersBox = new THREE.Box3().setFromObject(lettersGroup);
+        const contentGroup = new THREE.Group();
+        contentGroup.add(lettersGroup);
+
+        if (symbolType !== 'none') {
+            const symbolMesh = createSymbolMesh(symbolType);
+            if (symbolMesh) {
+                const symBox0 = new THREE.Box3().setFromObject(symbolMesh);
+                const symWidth = symBox0.max.x - symBox0.min.x;
+                const symbolOffsetX = lettersBox.max.x + symWidth * 0.6;
+                symbolMesh.position.set(symbolOffsetX, BODY_THICKNESS, 0);
+                contentGroup.add(symbolMesh);
+            }
+        }
+
+        const contentBox = new THREE.Box3().setFromObject(contentGroup);
+        const wideX = contentBox.max.x - contentBox.min.x;
 
         const MARGIN_X = 8;
         const MARGIN_Z = 4;
@@ -479,30 +651,25 @@
         const bodyW = wideX + MARGIN_X;
         const bodyZDepth = LETTER_HEIGHT + MARGIN_Z;
 
-        // socle
-        const bodyGeo = new THREE.BoxGeometry(bodyW, BODY_THICKNESS, bodyZDepth);
-        const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
-        bodyMesh.castShadow = true;
-        bodyMesh.receiveShadow = true;
+        const bodyMesh = createBaseMesh(bodyW, bodyZDepth);
 
-        const centerXOffset = bbox.min.x + (wideX / 2);
+        const centerXOffset = contentBox.min.x + (wideX / 2);
         bodyMesh.position.set(centerXOffset, BODY_THICKNESS / 2, 0);
 
-        // regroupe lettre + socle
         const pieceGroup = new THREE.Group();
         pieceGroup.add(bodyMesh);
-        pieceGroup.add(lettersGroup);
+        pieceGroup.add(contentGroup);
 
-        // centre la pièce autour de (0,0,0) sans changer sa forme
+        // Ajout de l’œillet porte-clé à GAUCHE
+        if (keychainMode === 'left_eyelet') {
+            const eyelet = createKeychainEyeletLeft(bodyW, bodyZDepth, centerXOffset);
+            pieceGroup.add(eyelet);
+        }
+
         centerGroupAtOrigin(pieceGroup);
-
-        // ajoute au groupe principal
         mainGroup.add(pieceGroup);
-
-        // on ne recadre pas la caméra ici (juste au premier rendu)
     }
 
-    // --- EXPORT STL ---
     function save(blob, filename) {
         const link = document.createElement('a');
         link.style.display = 'none';
@@ -521,7 +688,6 @@
         save(new Blob([result], { type: 'application/octet-stream' }), `${name}_modele.stl`);
     }
 
-    // --- CHARGEMENT DES POLICES ---
     function changeFont(fontKey) {
         const url = fontsDatabase[fontKey];
         if (!url) return;
@@ -536,7 +702,6 @@
                 elMsg.style.display = 'none';
                 generateUSB();
 
-                // On ne recadre la caméra qu'une seule fois (au premier rendu)
                 if (!hasFittedOnce) {
                     fitCameraToObject(mainGroup);
                     hasFittedOnce = true;
@@ -550,7 +715,6 @@
         );
     }
 
-    // --- ÉCOUTEURS ---
     elName.addEventListener('input', generateUSB);
     elFont.addEventListener('change', (e) => changeFont(e.target.value));
     elColorBody.addEventListener('change', generateUSB);
@@ -558,9 +722,10 @@
     elRot.addEventListener('input', generateUSB);
     elHeight.addEventListener('input', generateUSB);
     elGapRatio.addEventListener('input', generateUSB);
+    elSymbol.addEventListener('change', generateUSB);
+    elKeychain.addEventListener('change', generateUSB);
     elExportStlButton.addEventListener('click', exportStl);
 
-    // Bouton pour masquer / montrer l’UI (smartphone friendly)
     toggleUIButton.addEventListener('click', () => {
         uiContainer.classList.toggle('hidden');
     });
@@ -569,10 +734,8 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-        // On ne recadre PAS la caméra ici pour conserver le point de vue
     });
 
-    // --- BOUCLE D’ANIMATION ---
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
@@ -580,7 +743,6 @@
     }
     animate();
 
-    // --- LANCEMENT INITIAL ---
     elMsg.style.display = 'block';
     changeFont('luckiest');
 </script>
