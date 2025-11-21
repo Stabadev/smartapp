@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Configurateur USB 3D (Photoreal V10 - Export STL) - MOBILE READY</title>
+    
+    <style>
+        /* Styles de base non modifiés */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: sans-serif; 
+            background-color: #f0f0f0; 
+        }
+        
+        #ui-container {
+            position: absolute; 
+            top: 20px; /* Position par défaut pour desktop */
+            left: 20px; 
+            width: 260px; /* Largeur par défaut pour desktop */
+            max-height: 95vh; /* Assurer que le container ne dépasse pas l'écran */
+            overflow-y: auto; /* Permettre le défilement si le contenu est trop long */
+            padding: 20px; 
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            z-index: 10; 
+            transition: all 0.3s ease; /* Transition pour un changement plus fluide sur resize */
+        }
+
+        h1 { font-size: 18px; margin: 0 0 15px 0; color: #333; text-align: center; }
+        .control-group { margin-bottom: 15px; }
+        /* Augmentation de la taille de police pour une meilleure lisibilité mobile */
+        label { display: block; font-size: 13px; font-weight: bold; color: #666; margin-bottom: 5px; } 
+        
+        select, input[type="text"], input[type="range"] { 
+            width: 100%; 
+            padding: 10px; /* Augmentation du padding pour le toucher */
+            border: 1px solid #ccc; 
+            border-radius: 6px; /* Bordures plus douces pour le mobile */
+            box-sizing: border-box; 
+            cursor: pointer;
+            margin-bottom: 5px;
+            font-size: 14px; /* Augmentation de la police pour le toucher */
+        }
+        input[type="range"] { padding: 0; }
+        
+        /* Style du bouton STL */
+        #exportStlButton {
+            width: 100%;
+            padding: 12px; /* Augmentation du padding pour le toucher */
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 16px; /* Police plus visible */
+        }
+        #exportStlButton:hover {
+            background-color: #c0392b;
+        }
+
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        #loading-msg {
+            position: absolute; 
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%); 
+            font-weight: bold;
+            color: #e67e22; 
+            z-index: 50; 
+            pointer-events: none;
+            font-size: 16px; /* Augmentation de la taille de police */
+            text-align: center; 
+            display: none;
+        }
+
+        /* 2. Media Query pour les petits écrans (smartphones) */
+        @media (max-width: 600px) {
+            #ui-container {
+                /* Ancrage en bas de l'écran */
+                top: auto;
+                bottom: 0; 
+                left: 50%;
+                transform: translateX(-50%); /* Centrage horizontal */
+                width: 90vw; /* Utiliser la quasi-totalité de la largeur */
+                border-radius: 12px 12px 0 0; /* Coins supérieurs arrondis */
+                padding: 15px; /* Padding ajusté */
+                box-shadow: 0 -10px 30px rgba(0,0,0,0.15); /* Ombre vers le haut */
+                /* Définir une hauteur maximale pour éviter de masquer tout le canvas */
+                max-height: 70vh; 
+            }
+            
+            /* Réduire la marge pour que le contenu soit plus compact */
+            .control-group { margin-bottom: 10px; }
+            h1 { font-size: 20px; margin-bottom: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-container">
+        <h1>Configurateur USB</h1>
+        
+        <div class="control-group">
+            <label>STYLE DE POLICE</label>
+            <select id="selectFont">
+                <option value="luckiest">Luckiest Guy</option> 
+                <option value="cherry">Cherry Bomb One</option> 
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label>COULEUR DU CORPS (Socle)</label>
+            <select id="selectColorBody">
+                <option value="#3498db">Bleu Classique</option>
+                <option value="#2ecc71">Vert Émeraude</option>
+                <option value="#f39c12">Orange Vif</option>
+                <option value="#ecf0f1">Gris Clair</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>COULEUR DU TEXTE</label>
+            <select id="selectColorText">
+                <option value="#e74c3c">Rouge Carmin</option>
+                <option value="#9b59b6">Violet Améthyste</option>
+                <option value="#f1c40f">Jaune Or</option>
+                <option value="#34495e">Gris Profond</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>PRÉNOM</label>
+            <input type="text" id="inputName" value="ALEX" maxlength="10">
+        </div>
+
+        <div class="control-group">
+            <label>ÉCARTEMENT DES LETTRES</label>
+            <input type="range" id="sliderGapRatio" min="0.85" max="1.05" step="0.01" value="0.95">
+        </div>
+
+        <div class="control-group">
+            <label>ROTATION (Wiggle)</label>
+            <input type="range" id="sliderRot" min="-0.3" max="0.3" step="0.01" value="0">
+        </div>
+
+        <div class="control-group">
+            <label>HAUTEUR (Volume)</label>
+            <input type="range" id="sliderHeight" min="-2.5" max="2.5" step="0.1" value="0">
+        </div>
+        
+        <button id="exportStlButton">Télécharger STL</button>
+
+    </div>
+
+    <div id="loading-msg">Chargement des polices...</div>
+    <div id="canvas-container"></div>
+
+    <script type="module">
+        import * as THREE from 'https://esm.sh/three@0.154.0';
+        import { FontLoader } from 'https://esm.sh/three@0.154.0/examples/jsm/loaders/FontLoader.js';
+        import { TextGeometry } from 'https://esm.sh/three@0.154.0/examples/jsm/geometries/TextGeometry.js';
+        import { OrbitControls } from 'https://esm.sh/three@0.154.0/examples/jsm/controls/OrbitControls.js';
+        import { STLExporter } from 'https://esm.sh/three@0.154.0/examples/jsm/exporters/STLExporter.js';
+
+
+        // --- CONSTANTES GLOBALES DE SCÈNE ---
+        const LETTER_HEIGHT = 10; 
+        const BODY_THICKNESS = 4; 
+        const PLUG_COLOR = 0x808080; 
+        const PLUG_THICKNESS = BODY_THICKNESS * 0.5; 
+
+        // --- CONFIGURATION THREE.JS ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xf0f0f0); 
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+        // Position de caméra ajustée pour une vue plus "mobile-friendly"
+        camera.position.set(0, 70, 50); 
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true; 
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // 3. OPTIMISATION MOBILE DES CONTRÔLES
+        // Désactiver Pan sur mobile (pour éviter le conflit avec le défilement)
+        controls.enablePan = false; 
+        // Ajuster la sensibilité du zoom sur écran tactile
+        controls.zoomSpeed = 1.5; 
+
+        // --- LUMIÈRES ET MATÉRIAUX ---
+        const ambLight = new THREE.AmbientLight(0xffffff, 0.8); 
+        scene.add(ambLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2); 
+        mainLight.position.set(50, 50, 30);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 1024; 
+        mainLight.shadow.mapSize.height = 1024;
+        mainLight.shadow.camera.near = 0.5;
+        mainLight.shadow.camera.far = 150;
+
+        const SHADOW_RADIUS = 30;
+        mainLight.shadow.camera.left = -SHADOW_RADIUS;
+        mainLight.shadow.camera.right = SHADOW_RADIUS;
+        mainLight.shadow.camera.top = SHADOW_RADIUS;
+        mainLight.shadow.camera.bottom = -SHADOW_RADIUS;
+        mainLight.shadow.bias = -0.001; 
+
+        scene.add(mainLight);
+
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.8); 
+        fillLight.position.set(-50, 20, -10);
+        scene.add(fillLight);
+
+        const matPlastic = new THREE.MeshPhysicalMaterial({ 
+            color: 0x1E90FF, 
+            roughness: 0.8, 
+            metalness: 0.1, 
+            clearcoat: 0.5, 
+            clearcoatRoughness: 0.1 
+        }); 
+        
+        const matBody = new THREE.MeshPhysicalMaterial({ 
+            color: 0x3498db, 
+            roughness: 0.9, 
+            metalness: 0.1 
+        }); 
+        
+        const matMetal = new THREE.MeshStandardMaterial({ 
+            color: PLUG_COLOR, 
+            roughness: 0.5, 
+            metalness: 0.7 
+        });
+        
+        const matGround = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.8, metalness: 0.1 });
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), matGround);
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = 0; 
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+
+        // --- GESTION DES POLICES ET UI ---
+        let currentFont = null;
+        const fontLoader = new FontLoader();
+        const fontsDatabase = {
+            luckiest: 'luckiest.json', 
+            cherry: 'cherry.json' 
+        };
+
+        const mainGroup = new THREE.Group();
+        scene.add(mainGroup); 
+
+        const elName = document.getElementById('inputName');
+        const elFont = document.getElementById('selectFont');
+        const elMsg = document.getElementById('loading-msg');
+        const elColorBody = document.getElementById('selectColorBody');
+        const elColorText = document.getElementById('selectColorText');
+        const elRot = document.getElementById('sliderRot'); 
+        const elHeight = document.getElementById('sliderHeight'); 
+        const elGapRatio = document.getElementById('sliderGapRatio'); 
+        const elExportStlButton = document.getElementById('exportStlButton'); 
+
+
+        // --- FONCTIONS DE GÉNERATION ET EXPORT (Non Modifiées) ---
+        
+        function changeFont(fontKey) {
+            elMsg.style.display = 'block';
+            elMsg.innerText = `Chargement police : ${fontKey}...`;
+            
+            fontLoader.load(fontsDatabase[fontKey], function (font) {
+                currentFont = font;
+                elMsg.style.display = 'none';
+                generateUSB(); 
+            },
+            undefined, 
+            function (err) { 
+                console.error(`Erreur Critique de Chargement Police pour ${fontKey}:`, err); 
+                elMsg.innerText = `Erreur de chargement pour ${fontKey}. (Fichier JSON manquant ou incorrect)`;
+            });
+        }
+        
+        function generateUSB() {
+            if (!currentFont) {
+                elMsg.style.display = 'block';
+                return;
+            }
+            elMsg.style.display = 'none';
+
+            // 1. MISE À JOUR DES COULEURS DES MATÉRIAUX
+            const colorBodyHex = elColorBody.value;
+            const colorTextHex = elColorText.value;
+
+            matPlastic.color.set(colorTextHex); 
+            matBody.color.set(colorBodyHex);     
+            
+            // 2. Nettoyage de l'ancien modèle
+            while(mainGroup.children.length > 0){ 
+                const obj = mainGroup.children[0];
+                if (obj.geometry) obj.geometry.dispose();
+                mainGroup.remove(obj);
+            }
+
+            // --- CONSTANTES LOCALES POUR LA GÉOMÉTRIE ---
+            const LETTER_EXTRUSION_BASE = 2.5;
+            const BEVEL_THICKNESS = 0.2;
+            const BEVEL_SIZE = 0.1;
+
+            // 3. Lecture des Paramètres UI
+            const textStr = elName.value.toUpperCase() || " ";
+            const rotVal = parseFloat(elRot.value); 
+            const heightVal = parseFloat(elHeight.value); 
+            const gapRatio = parseFloat(elGapRatio.value); 
+
+            let currentX = 0; 
+            const lettersGroup = new THREE.Group();
+
+            // 4. Boucle pour chaque lettre
+            for (let i = 0; i < textStr.length; i++) {
+                const char = textStr[i];
+                const isPair = (i % 2 === 0);
+
+                let extrusionDepth = LETTER_EXTRUSION_BASE + (isPair ? heightVal : -heightVal);
+                if (extrusionDepth < 0.5) extrusionDepth = 0.5;
+
+                const textGeo = new TextGeometry(char, {
+                    font: currentFont,
+                    size: LETTER_HEIGHT, 
+                    height: extrusionDepth, 
+                    curveSegments: 6,
+                    bevelEnabled: true,
+                    bevelThickness: BEVEL_THICKNESS, 
+                    bevelSize: BEVEL_SIZE,     
+                    bevelSegments: 2
+                });
+
+                textGeo.computeBoundingBox();
+                const xSize = textGeo.boundingBox.max.x - textGeo.boundingBox.min.x;
+                const ySize = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
+                
+                // Centrage de la géométrie pour alignement Z et Y
+                textGeo.translate(-xSize / 2, -ySize / 2, 0); 
+                textGeo.center(); 
+
+                const mesh = new THREE.Mesh(textGeo, matPlastic);
+                
+                mesh.castShadow = true;
+                mesh.receiveShadow = true; 
+                
+                // Position et Rotation (MESH)
+                mesh.rotation.x = -Math.PI / 2; 
+                mesh.rotation.z = isPair ? rotVal : -rotVal;
+
+                // Positionnement Y : Les lettres reposent sur le haut du socle
+                mesh.position.set(currentX + xSize/2, BODY_THICKNESS, 0); 
+                
+                lettersGroup.add(mesh);
+                
+                currentX += (xSize * gapRatio); 
+            }
+            
+            // --- CALCUL DE LA LARGEUR (AXE X) ---
+            const bbox = new THREE.Box3().setFromObject(lettersGroup);
+            const wideX = bbox.max.x - bbox.min.x; 
+
+            // 5. Socle et Prise USB (Dimensionnement et Positionnement)
+            
+            const MARGIN_X = 8; 
+            const MARGIN_Z = 4; 
+            
+            const bodyW = wideX + MARGIN_X; 
+            const bodyZDepth = LETTER_HEIGHT + MARGIN_Z; 
+
+            // Socle (matBody)
+            const bodyGeo = new THREE.BoxGeometry(bodyW, BODY_THICKNESS, bodyZDepth);
+            const bodyMesh = new THREE.Mesh(bodyGeo, matBody);
+            
+            bodyMesh.castShadow = true; 
+            bodyMesh.receiveShadow = true; 
+
+            const centerXOffset = bbox.min.x + (wideX / 2);
+
+            bodyMesh.position.set(centerXOffset, BODY_THICKNESS / 2, 0); 
+            mainGroup.add(bodyMesh);
+
+            // 6. Prise USB (Embout Encadré) 
+            const plugGeo = new THREE.BoxGeometry(12, PLUG_THICKNESS, bodyZDepth * 0.8);
+            const plugMesh = new THREE.Mesh(plugGeo, matMetal);
+            
+            plugMesh.castShadow = true;
+            plugMesh.receiveShadow = true;
+            
+            // Positionnement Y : Centré verticalement sur le BODY_THICKNESS
+            plugMesh.position.set(bbox.min.x - 6, BODY_THICKNESS / 2, 0);
+            mainGroup.add(plugMesh);
+            
+            mainGroup.add(lettersGroup);
+            
+            // Positionnement final : centre l'ensemble de la clé USB dans la vue
+            mainGroup.position.x = -(bbox.min.x + plugGeo.parameters.width / 2); 
+            mainGroup.position.y = BODY_THICKNESS / 2;
+        }
+
+        /** * Fonction utilitaire pour déclencher le téléchargement
+         * @param {Blob} blob 
+         * @param {string} filename 
+         */
+        function save(blob, filename) {
+            const link = document.createElement('a');
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        /**
+         * Exporte le modèle combiné (socle + lettres) au format STL
+         */
+        function exportStl() {
+            // Création d'un groupe pour l'export (doit contenir uniquement les maillages)
+            const exportGroup = new THREE.Group();
+            
+            // Récupérer le socle (Mesh) et les lettres (Group) du mainGroup
+            mainGroup.children.forEach(child => {
+                // Cloner les objets pour ne pas modifier la scène lors de l'export
+                if (child.isMesh) {
+                    exportGroup.add(child.clone());
+                } else if (child.isGroup) {
+                    child.children.forEach(letter => exportGroup.add(letter.clone()));
+                }
+            });
+            
+            const exporter = new STLExporter();
+            const result = exporter.parse(exportGroup, { binary: true });
+            
+            const name = elName.value.toUpperCase() || 'USB_CLE';
+            save(new Blob([result], { type: 'application/octet-stream' }), `${name}_modele.stl`);
+        }
+
+
+        // --- ÉCOUTEURS D'ÉVÉNEMENTS et ANIMATION ---
+
+        elName.addEventListener('input', generateUSB);
+        elFont.addEventListener('change', (e) => { changeFont(e.target.value); });
+        
+        elColorBody.addEventListener('change', generateUSB);
+        elColorText.addEventListener('change', generateUSB);
+        
+        elRot.addEventListener('input', generateUSB);
+        elHeight.addEventListener('input', generateUSB);
+        elGapRatio.addEventListener('input', generateUSB);
+        
+        elExportStlButton.addEventListener('click', exportStl);
+
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Lancement initial
+        elMsg.style.display = 'block';
+        changeFont('luckiest'); 
+    </script>
+</body>
+</html>
