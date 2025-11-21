@@ -12,7 +12,8 @@
             margin: 0;
             overflow: hidden;
             font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background-color: #f0f0f0;
+            /* Fond dégradé doux derrière la scène 3D */
+            background: radial-gradient(circle at top, #ffffff 0%, #e0e7ff 45%, #c7d2fe 75%, #94a3b8 100%);
         }
 
         /* Canvas plein écran */
@@ -32,6 +33,7 @@
             padding: 10px;
             box-sizing: border-box;
             background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(8px);
             box-shadow: -6px 0 14px rgba(0, 0, 0, 0.15);
             z-index: 10;
             overflow-y: auto;
@@ -136,13 +138,10 @@
         /* Mode paysage très bas (ex : smartphone couché) */
         @media (orientation: landscape) and (max-height: 500px) {
             #ui-container {
-                position: fixed;
-                top: 0;
-                right: 0;
                 width: 210px;
                 height: 100vh;
                 padding: 10px;
-                padding-bottom: 80px; /* 👈 coussin de scroll pour le bas */
+                padding-bottom: 80px; /* coussin de scroll pour le bas */
                 box-sizing: border-box;
                 background: rgba(255, 255, 255, 0.96);
                 box-shadow: -6px 0 14px rgba(0, 0, 0, 0.15);
@@ -187,7 +186,7 @@
             <option value="#3498db">Bleu Classique</option>
             <option value="#2ecc71">Vert Émeraude</option>
             <option value="#f39c12">Orange Vif</option>
-            <option value="#ecf0f1">Gris Clair</option>
+            <option value="#868F92">Gris Clair</option>
         </select>
     </div>
 
@@ -242,7 +241,7 @@
 
     // --- SCÈNE / CAMÉRA / RENDERER ---
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf0f0f0);
+    // on laisse la scène transparente pour voir le dégradé CSS
 
     const camera = new THREE.PerspectiveCamera(
         45,
@@ -253,9 +252,19 @@
     camera.position.set(0, 80, 140);
     camera.lookAt(0, 0, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
+
+    // Amélioration du rendu global
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    // Ombres plus réalistes
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -265,38 +274,68 @@
     controls.zoomSpeed = 0.6;
 
     // --- LUMIÈRES ---
-    const ambLight = new THREE.AmbientLight(0xffffff, 0.8);
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.55);
     scene.add(ambLight);
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    mainLight.position.set(50, 50, 30);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 1.35);
+    mainLight.position.set(40, 80, 50);
+    mainLight.castShadow = true;
+    mainLight.shadow.mapSize.set(1024, 1024);
+    mainLight.shadow.camera.near = 10;
+    mainLight.shadow.camera.far = 200;
+    mainLight.shadow.camera.left = -80;
+    mainLight.shadow.camera.right = 80;
+    mainLight.shadow.camera.top = 80;
+    mainLight.shadow.camera.bottom = -80;
     scene.add(mainLight);
 
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    fillLight.position.set(-50, 20, -10);
+    // lumière de remplissage
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.55);
+    fillLight.position.set(-40, 40, -30);
     scene.add(fillLight);
+
+    // petit backlight pour des reflets sur les arrêtes
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    rimLight.position.set(0, 60, -80);
+    scene.add(rimLight);
+
+    // --- SOL (réception des ombres) ---
+    // IMPORTANT : pas dans mainGroup pour ne pas perturber export STL ni centrage
+    const groundGeo = new THREE.PlaneGeometry(400, 400);
+    const groundMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.95,
+        metalness: 0.0
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -BODY_THICKNESS * 1.2; // légèrement sous la base
+    ground.receiveShadow = true;
+    scene.add(ground);
 
     // --- MATÉRIAUX ---
     const matPlastic = new THREE.MeshPhysicalMaterial({
         color: 0x1E90FF,
-        roughness: 0.8,
-        metalness: 0.1,
-        clearcoat: 0.5,
+        roughness: 0.45,
+        metalness: 0.25,
+        clearcoat: 0.6,
         clearcoatRoughness: 0.1
     });
 
     const matBody = new THREE.MeshPhysicalMaterial({
         color: 0x3498db,
-        roughness: 0.9,
-        metalness: 0.1
+        roughness: 0.75,
+        metalness: 0.1,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.2
     });
 
     const matMetal = new THREE.MeshStandardMaterial({
         color: PLUG_COLOR,
-        roughness: 0.5,
-        metalness: 0.7
+        roughness: 0.35,
+        metalness: 0.85
     });
-    // ground supprimé pour ne pas élargir la bounding box de centrage
+    // ground ne fait pas partie de mainGroup -> ne gêne pas le centrage / STL
 
     // --- GESTION DES POLICES ---
     let currentFont = null;
@@ -413,7 +452,7 @@
             const xSize = textGeo.boundingBox.max.x - textGeo.boundingBox.min.x;
             const ySize = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
 
-            // même centrage que ton code (translate + center)
+            // centrage
             textGeo.translate(-xSize / 2, -ySize / 2, 0);
             textGeo.center();
 
@@ -449,19 +488,18 @@
         const centerXOffset = bbox.min.x + (wideX / 2);
         bodyMesh.position.set(centerXOffset, BODY_THICKNESS / 2, 0);
 
-        // on regroupe lettre + socle dans un group pour les centrer proprement
+        // regroupe lettre + socle
         const pieceGroup = new THREE.Group();
         pieceGroup.add(bodyMesh);
         pieceGroup.add(lettersGroup);
 
-        // centre la pièce autour de (0,0,0) SANS changer sa forme / proportion
+        // centre la pièce autour de (0,0,0) sans changer sa forme
         centerGroupAtOrigin(pieceGroup);
 
         // ajoute au groupe principal
         mainGroup.add(pieceGroup);
 
-        // ⚠️ NE PLUS RECENTRER LA CAMÉRA ICI
-        // fitCameraToObject(mainGroup);
+        // on ne recadre pas la caméra ici (juste au premier rendu)
     }
 
     // --- EXPORT STL ---
@@ -531,7 +569,7 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
-        // On NE recadre PAS la caméra ici pour conserver le point de vue
+        // On ne recadre PAS la caméra ici pour conserver le point de vue
     });
 
     // --- BOUCLE D’ANIMATION ---
@@ -546,7 +584,6 @@
     elMsg.style.display = 'block';
     changeFont('luckiest');
 </script>
-
 
 </body>
 </html>
