@@ -136,8 +136,19 @@
         /* Mode paysage très bas (ex : smartphone couché) */
         @media (orientation: landscape) and (max-height: 500px) {
             #ui-container {
-                width: 190px;
-                padding: 6px;
+                position: fixed;
+                top: 0;
+                right: 0;
+                width: 210px;
+                height: 100vh;
+                padding: 10px;
+                padding-bottom: 80px; /* 👈 coussin de scroll pour le bas */
+                box-sizing: border-box;
+                background: rgba(255, 255, 255, 0.96);
+                box-shadow: -6px 0 14px rgba(0, 0, 0, 0.15);
+                z-index: 10;
+                overflow-y: auto;
+                transition: transform 0.25s ease-out;
             }
             h1 {
                 font-size: 14px;
