@@ -2,17 +2,58 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Configurateur USB 3D (Mobile)</title>
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Atelier 3D Universel</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <style>
-        /* BASE */
+        /* --- VARIABLES & THEME --- */
+        :root {
+            --bg-gradient: radial-gradient(circle at top, #ffffff 0%, #e0e7ff 45%, #c7d2fe 75%, #94a3b8 100%);
+            --dock-bg: rgba(255, 255, 255, 0.95);
+            --text-color: #1e293b;
+            --input-bg: transparent;
+            --input-color: #1e293b;
+            --icon-color: #94a3b8;
+            --accent: #3b82f6;
+            /* Couleur des bordures/pistes de slider par défaut */
+            --border-color: #cbd5e1; 
+            --list-item-bg: #f8fafc;
+            --nav-btn-bg: transparent;
+            --nav-btn-color: #64748b;
+            /* Couleur de l'anneau de visibilité des couleurs non sélectionnées */
+            --color-ring: rgba(0, 0, 0, 0.15); 
+        }
+
+        body.dark-mode {
+            /* Fond gris sombre mais pas noir absolu pour bien voir la pièce */
+            --bg-gradient: radial-gradient(circle at top, #475569 0%, #0f172a 100%);
+            --dock-bg: rgba(15, 23, 42, 0.95);
+            --text-color: #f1f5f9;
+            --input-bg: transparent;
+            --input-color: #ffffff;
+            --icon-color: #64748b;
+            --accent: #60a5fa;
+            /* Piste de slider plus claire pour le contraste sombre */
+            --border-color: #475569; 
+            --list-item-bg: #1e293b;
+            --nav-btn-bg: rgba(255,255,255,0.05);
+            --nav-btn-color: #94a3b8;
+            /* Anneau de visibilité plus clair pour le fond sombre */
+            --color-ring: rgba(255, 255, 255, 0.25);
+        }
+
+        /* --- BASE --- */
         body {
             margin: 0;
             overflow: hidden;
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: radial-gradient(circle at top, #ffffff 0%, #e0e7ff 45%, #c7d2fe 75%, #94a3b8 100%);
+            font-family: 'Segoe UI', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-color);
+            transition: background 0.5s;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         #canvas-container {
@@ -21,552 +62,697 @@
             z-index: 0;
         }
 
-        #ui-container {
+        /* --- UI DOCK (Horizontal Strip) --- */
+        #ui-dock {
             position: fixed;
-            top: 0;
-            right: 0;
-            width: 210px;
-            height: 100vh;
-            padding: 10px;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 140px;
+            background: var(--dock-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            box-shadow: 0 -5px 30px rgba(0,0,0,0.2);
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease, background 0.3s;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        #ui-dock.minimized {
+            transform: translateY(100%);
+        }
+
+        /* --- PROGRESS BAR --- */
+        .progress-track {
+            display: flex;
+            height: 4px;
+            width: 100%;
+            padding: 0 20px;
+            margin-top: 12px;
             box-sizing: border-box;
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(8px);
-            box-shadow: -6px 0 14px rgba(0, 0, 0, 0.15);
-            z-index: 10;
-            overflow-y: auto;
-            transition: transform 0.25s ease-out;
+            gap: 4px;
+            justify-content: center;
+        }
+        .prog-dot {
+            flex: 1;
+            max-width: 30px;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            transition: 0.3s;
+        }
+        .prog-dot.active { background: var(--accent); }
+        .prog-dot.completed { background: var(--accent); opacity: 0.5; }
+
+        /* --- MAIN ROW --- */
+        .dock-row {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
-        #ui-container.hidden {
-            transform: translateX(100%);
-        }
-
-        #toggle-ui {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            width: 38px;
-            height: 38px;
+        .nav-btn {
+            width: 50px;
+            height: 50px;
             border-radius: 50%;
             border: none;
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            z-index: 15;
-            font-size: 20px;
+            background: var(--nav-btn-bg);
+            color: var(--nav-btn-color);
+            font-size: 24px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: 0.2s;
+            flex-shrink: 0;
+        }
+        .nav-btn:active { transform: scale(0.9); }
+        .nav-btn:disabled { opacity: 0.2; cursor: default; }
+        .nav-btn.primary { color: var(--accent); }
+
+        .tool-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 0 10px;
+            overflow: hidden;
         }
 
-        #toggle-ui:active {
-            transform: scale(0.96);
+        /* Step Indicator (Left Icon) */
+        .step-indicator-icon {
+            font-size: 28px;
+            color: var(--accent);
+            margin-right: 15px;
+            padding-right: 15px;
+            border-right: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            height: 40px;
+            flex-shrink: 0;
         }
 
-        h1 {
-            font-size: 18px;
-            margin: 0 0 12px 0;
-            text-align: center;
-            color: #333;
-        }
-
-        .control-group {
-            margin-bottom: 10px;
-        }
-
-        label {
-            display: block;
-            font-size: 12px;
-            font-weight: 600;
-            color: #444;
-            margin-bottom: 4px;
-        }
-
-        select,
-        input[type="text"],
-        input[type="range"] {
-            width: 100%;
-            padding: 6px;
-            margin-bottom: 5px;
-            box-sizing: border-box;
-            border-radius: 4px;
-            border: 1px solid #ccc;
-            font-size: 13px;
-        }
-
-        input[type="range"] {
-            padding: 0;
-        }
-
-        #exportStlButton {
-            width: 100%;
-            padding: 9px;
-            background-color: #e74c3c;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: 700;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        #exportStlButton:active {
-            transform: scale(0.97);
-        }
-
-        #loading-msg {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: bold;
-            color: #ffffff;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 10px 14px;
-            border-radius: 6px;
-            z-index: 20;
-            font-size: 14px;
-            text-align: center;
+        .step {
             display: none;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            animation: fadeInRight 0.3s ease;
+        }
+        .step.active { display: flex; }
+        
+        @keyframes fadeInRight {
+            from { opacity: 0; transform: translateX(10px); }
+            to { opacity: 1; transform: translateX(0); }
         }
 
-        @media (orientation: landscape) and (max-height: 500px) {
-            #ui-container {
-                width: 210px;
-                height: 100vh;
-                padding: 10px;
-                padding-bottom: 80px;
-                box-sizing: border-box;
-                background: rgba(255, 255, 255, 0.96);
-                box-shadow: -6px 0 14px rgba(0, 0, 0, 0.15);
-                z-index: 10;
-                overflow-y: auto;
-                transition: transform 0.25s ease-out;
-            }
-            h1 {
-                font-size: 14px;
-                margin-bottom: 8px;
-            }
-            label {
-                font-size: 11px;
-            }
-            select,
-            input[type="text"],
-            input[type="range"] {
-                font-size: 11px;
-            }
+        /* 1. Input Text */
+        input[type="text"] {
+            background: var(--input-bg);
+            border: none;
+            border-bottom: 2px solid var(--border-color);
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--input-color);
+            text-align: center;
+            width: 100%;
+            max-width: 220px;
+            padding: 5px;
+            outline: none;
+            text-transform: uppercase;
         }
+        input[type="text"]:focus { border-color: var(--accent); }
+
+        /* 2. Lists (Fonts, Symbols) */
+        .h-scroll-list {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 10px 5px;
+            width: 100%;
+            align-items: center;
+            justify-content: center;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .h-scroll-list::-webkit-scrollbar { display: none; }
+
+        .list-item {
+            flex-shrink: 0;
+            height: 50px;
+            min-width: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--list-item-bg);
+            color: var(--nav-btn-color);
+            font-size: 24px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .list-item.selected {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+            transform: scale(1.05);
+        }
+
+        /* 3. Key Toggle Button */
+        .key-toggle-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 18px;
+            background: var(--list-item-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            cursor: pointer;
+            border: 3px solid transparent;
+            transition: 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .key-toggle-btn.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(59, 130, 246, 0.1);
+        }
+        .key-toggle-btn.inactive {
+            color: #94a3b8;
+            border-color: var(--border-color);
+            opacity: 0.8;
+        }
+        .key-toggle-btn.inactive::after {
+            content: '';
+            position: absolute;
+            width: 120%;
+            height: 4px;
+            background-color: #ef4444;
+            transform: rotate(-45deg);
+            top: 50%;
+            left: -10%;
+            box-shadow: 0 0 4px rgba(255,255,255,0.8);
+        }
+
+        /* 4. Color Circles (Improved Visibility) */
+        .color-circle {
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: transform 0.2s, box-shadow 0.2s;
+            /* Anneau de visibilité par défaut (contraste avec le fond) */
+            box-shadow: 0 0 0 2px var(--color-ring);
+            border: 2px solid transparent; /* Espace pour l'anneau */
+            box-sizing: border-box;
+        }
+        
+        .color-circle.selected {
+            transform: scale(1.15);
+            /* Anneau de sélection : Couleur Accent + Espace transparent */
+            border-color: var(--dock-bg); /* Simule un espace transparent */
+            box-shadow: 0 0 0 4px var(--accent);
+            z-index: 1;
+        }
+
+        /* 5. Sliders */
+        .slider-group {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 10px;
+        }
+        
+        input[type="range"] {
+            width: 33vw;
+            max-width: 200px;
+            min-width: 120px;
+            height: 12px;
+            background: var(--border-color); /* Track color adapted for dark mode */
+            border-radius: 6px;
+            outline: none;
+            appearance: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 32px;
+            height: 32px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transform: translateY(0);
+            transition: transform 0.1s;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.1);
+        }
+
+        /* 6. Export Btn */
+        .export-btn {
+            background: #10b981;
+            color: white;
+            padding: 12px 30px;
+            border-radius: 25px;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Top Buttons */
+        .top-btn {
+            position: fixed;
+            top: 20px;
+            width: 44px; height: 44px;
+            background: var(--dock-bg);
+            color: var(--text-color);
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 100;
+            font-size: 22px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #toggle-eye { right: 20px; }
+        #toggle-dark { left: 20px; }
+
+        #loader {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none; opacity: 0; transition: 0.2s; z-index: 200;
+        }
+        .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid rgba(59, 130, 246, 0.2);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
     </style>
 </head>
 <body>
 
-<button id="toggle-ui">⚙</button>
+<button id="toggle-dark" class="top-btn"><i class="ph ph-moon"></i></button>
+<button id="toggle-eye" class="top-btn"><i class="ph ph-eye"></i></button>
 
-<div id="ui-container">
-    <h1>Configurateur USB</h1>
+<div id="loader"><div class="spinner"></div></div>
 
-    <div class="control-group">
-        <label>STYLE DE POLICE</label>
-        <select id="selectFont">
-            <option value="luckiest">Luckiest Guy</option>
-            <option value="cherry">Cherry Bomb One</option>
-        </select>
+<div id="ui-dock">
+    <div class="progress-track"></div>
+
+    <div class="dock-row">
+        
+        <button class="nav-btn" id="btn-prev">
+            <i class="ph ph-arrow-left"></i>
+        </button>
+
+        <div class="tool-container">
+            
+            <!-- ETAPE 0: TEXTE -->
+            <div class="step active" data-step="0">
+                <div class="step-indicator-icon"><i class="ph ph-pencil-simple"></i></div>
+                <input type="text" id="val-name" value="ALEX" maxlength="10" placeholder="NOM">
+            </div>
+
+            <!-- ETAPE 1: CLÉ (Active/Inactive) -->
+            <div class="step" data-step="1">
+                <div class="key-toggle-btn active" id="btn-key-toggle">
+                    <i class="ph ph-key"></i>
+                </div>
+                <input type="hidden" id="val-keychain" value="left_eyelet">
+            </div>
+
+            <!-- ETAPE 2: POLICE (Locales) -->
+            <div class="step" data-step="2">
+                <div class="step-indicator-icon"><i class="ph ph-text-aa"></i></div>
+                <div class="h-scroll-list" id="font-selector">
+                    <div class="list-item selected" data-val="cherry" style="width:100px; font-weight:bold;">CHERRY</div>
+                    <div class="list-item" data-val="chango" style="width:100px; font-weight:bold;">CHANGO</div>
+                    <div class="list-item" data-val="lucky" style="width:100px; font-weight:bold;">LUCKY</div>
+                </div>
+                <input type="hidden" id="val-font" value="cherry">
+            </div>
+
+            <!-- ETAPE 3: COULEUR BASE -->
+            <div class="step" data-step="3">
+                <div class="step-indicator-icon"><i class="ph ph-square-fill"></i></div>
+                <div class="h-scroll-list center-items" id="palette-body"></div>
+                <input type="hidden" id="val-color-body" value="#3498db">
+            </div>
+
+            <!-- ETAPE 4: COULEUR TEXTE -->
+            <div class="step" data-step="4">
+                <div class="step-indicator-icon"><i class="ph ph-text-t"></i></div>
+                <div class="h-scroll-list center-items" id="palette-text"></div>
+                <input type="hidden" id="val-color-text" value="#ffffff">
+            </div>
+
+            <!-- ETAPE 5: ECARTEMENT -->
+            <div class="step" data-step="5">
+                <div class="step-indicator-icon"><i class="ph ph-arrows-left-right"></i></div>
+                <div class="slider-group">
+                    <input type="range" id="val-gap" min="0.85" max="1.3" step="0.01" value="0.98">
+                </div>
+            </div>
+
+            <!-- ETAPE 6: ROTATION -->
+            <div class="step" data-step="6">
+                <div class="step-indicator-icon"><i class="ph ph-arrows-clockwise"></i></div>
+                <div class="slider-group">
+                    <input type="range" id="val-rot" min="-0.25" max="0.25" step="0.01" value="0">
+                </div>
+            </div>
+
+            <!-- ETAPE 7: HAUTEUR ALTERNEE -->
+            <div class="step" data-step="7">
+                <div class="step-indicator-icon"><i class="ph ph-chart-bar"></i></div>
+                <div class="slider-group">
+                    <input type="range" id="val-alt-height" min="-1" max="1" step="0.1" value="0">
+                </div>
+            </div>
+
+            <!-- ETAPE 8: SYMBOLE -->
+            <div class="step" data-step="8">
+                <div class="h-scroll-list" id="symbol-selector">
+                    <div class="list-item selected" data-val="none"><i class="ph ph-prohibit"></i></div>
+                    <div class="list-item" data-val="star"><i class="ph ph-star"></i></div>
+                    <div class="list-item" data-val="heart"><i class="ph ph-heart"></i></div>
+                    <div class="list-item" data-val="crown"><i class="ph ph-crown"></i></div>
+                    <div class="list-item" data-val="cat"><i class="ph ph-cat"></i></div>
+                </div>
+                <input type="hidden" id="val-symbol" value="none">
+            </div>
+
+            <!-- ETAPE 9: EXPORT -->
+            <div class="step" data-step="9">
+                <button class="export-btn" id="btn-export">
+                    <i class="ph ph-download-simple"></i> Télécharger
+                </button>
+            </div>
+
+        </div>
+
+        <button class="nav-btn primary" id="btn-next">
+            <i class="ph ph-arrow-right"></i>
+        </button>
+
     </div>
-
-    <div class="control-group">
-        <label>COULEUR DU CORPS (Socle)</label>
-        <select id="selectColorBody">
-            <option value="#3498db">Bleu Classique</option>
-            <option value="#2ecc71">Vert Émeraude</option>
-            <option value="#f39c12">Orange Vif</option>
-            <option value="#868F92">Gris Clair</option>
-        </select>
-    </div>
-
-    <div class="control-group">
-        <label>COULEUR DU TEXTE</label>
-        <select id="selectColorText">
-            <option value="#e74c3c">Rouge Carmin</option>
-            <option value="#9b59b6">Violet Améthyste</option>
-            <option value="#f1c40f">Jaune Or</option>
-            <option value="#34495e">Gris Profond</option>
-        </select>
-    </div>
-
-    <div class="control-group">
-        <label>PRÉNOM</label>
-        <input type="text" id="inputName" value="ALEX" maxlength="10">
-    </div>
-
-    <div class="control-group">
-        <label>SYMBOLE</label>
-        <select id="selectSymbol">
-            <option value="none">Aucun symbole</option>
-            <option value="star">Étoile</option>
-            <option value="circle">Rond</option>
-            <option value="diamond">Losange</option>
-            <option value="heart">Cœur</option>
-            <option value="square">Carré</option>
-            <option value="triangle">Triangle</option>
-        </select>
-    </div>
-
-    <div class="control-group">
-        <label>MODE PORTE-CLÉ</label>
-        <select id="selectKeychain">
-            <option value="none">Sans porte-clé</option>
-            <option value="left_eyelet">Porte-clé (œillet à gauche)</option>
-        </select>
-    </div>
-
-
-
-    <div class="control-group">
-        <label>ÉCARTEMENT DES LETTRES</label>
-        <input type="range" id="sliderGapRatio" min="0.85" max="1.3" step="0.01" value="0.95">
-    </div>
-
-    <div class="control-group">
-        <label>ROTATION (Wiggle)</label>
-        <input type="range" id="sliderRot" min="-0.3" max="0.3" step="0.01" value="0">
-    </div>
-
-    <div class="control-group">
-        <label>HAUTEUR (Volume)</label>
-        <input type="range" id="sliderHeight" min="-0.9" max="1" step="0.1" value="0">
-    </div>
-
-    <button id="exportStlButton">Télécharger STL</button>
 </div>
 
-<div id="loading-msg">Chargement des polices...</div>
 <div id="canvas-container"></div>
 
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+</script>
+
 <script type="module">
-    import * as THREE from 'https://esm.sh/three@0.154.0';
-    import { FontLoader } from 'https://esm.sh/three@0.154.0/examples/jsm/loaders/FontLoader.js';
-    import { TextGeometry } from 'https://esm.sh/three@0.154.0/examples/jsm/geometries/TextGeometry.js';
-    import { OrbitControls } from 'https://esm.sh/three@0.154.0/examples/jsm/controls/OrbitControls.js';
-    import { STLExporter } from 'https://esm.sh/three@0.154.0/examples/jsm/exporters/STLExporter.js';
+    import * as THREE from 'three';
+    import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+    import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 
-    const LETTER_HEIGHT = 10;
+    // --- CONFIG ---
+    const LETTER_HEIGHT = 12;
     const BODY_THICKNESS = 4;
-    const PLUG_COLOR = 0x808080;
-    const PLUG_THICKNESS = BODY_THICKNESS * 0.5;
+    const SYMBOL_EXTRUSION = 3;
+    const SYMBOL_RADIUS_FACTOR = 0.45; 
 
-    const SYMBOL_EXTRUSION = 2.5;           // hauteur fixe du symbole
-    const SYMBOL_RADIUS_FACTOR = 0.35;      // taille symbole / hauteur lettre
+    const COLORS_BODY = ['#3498db', '#2ecc71', '#e67e22', '#34495e'];
+    const COLORS_TEXT = ['#ffffff', '#f1c40f', '#000000', '#e74c3c'];
 
+    // --- SCENE SETUP ---
     const scene = new THREE.Scene();
-
-    const camera = new THREE.PerspectiveCamera(
-        45,
-        window.innerWidth / window.innerHeight,
-        0.1,
-        2000
-    );
-    camera.position.set(0, 80, 140);
-    camera.lookAt(0, 0, 0);
+    scene.fog = new THREE.FogExp2(0xeef2ff, 0.0025);
+    
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 90, 110);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
     document.getElementById('canvas-container').appendChild(renderer.domElement);
-
+    
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
-    controls.rotateSpeed = 0.7;
-    controls.zoomSpeed = 0.6;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 400;
+    controls.target.set(0, -10, 0);
 
-    const ambLight = new THREE.AmbientLight(0xffffff, 0.55);
-    scene.add(ambLight);
-
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.35);
-    mainLight.position.set(40, 80, 50);
-    mainLight.castShadow = true;
-    mainLight.shadow.mapSize.set(1024, 1024);
-    mainLight.shadow.camera.near = 10;
-    mainLight.shadow.camera.far = 200;
-    mainLight.shadow.camera.left = -80;
-    mainLight.shadow.camera.right = 80;
-    mainLight.shadow.camera.top = 80;
-    mainLight.shadow.camera.bottom = -80;
-    scene.add(mainLight);
-
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.55);
-    fillLight.position.set(-40, 40, -30);
-    scene.add(fillLight);
-
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.35);
-    rimLight.position.set(0, 60, -80);
-    scene.add(rimLight);
-
-    const groundGeo = new THREE.PlaneGeometry(400, 400);
-    const groundMat = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        roughness: 0.95,
-        metalness: 0.0
-    });
-    const ground = new THREE.Mesh(groundGeo, groundMat);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(40, 80, 60);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(2048, 2048);
+    scene.add(dirLight);
+    
+    const ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(600, 600), 
+        new THREE.ShadowMaterial({ opacity: 0.06 })
+    );
     ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -BODY_THICKNESS * 1.2;
+    ground.position.y = -0.1;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const matPlastic = new THREE.MeshPhysicalMaterial({
-        color: 0x1E90FF,
-        roughness: 0.45,
-        metalness: 0.25,
-        clearcoat: 0.6,
-        clearcoatRoughness: 0.1
-    });
-
-    const matBody = new THREE.MeshPhysicalMaterial({
-        color: 0x3498db,
-        roughness: 0.75,
-        metalness: 0.1,
-        clearcoat: 0.3,
-        clearcoatRoughness: 0.2
-    });
-
-    const matMetal = new THREE.MeshStandardMaterial({
-        color: PLUG_COLOR,
-        roughness: 0.35,
-        metalness: 0.85
-    });
-
-    let currentFont = null;
-    const fontLoader = new FontLoader();
-    const fontsDatabase = {
-        luckiest: 'luckiest.json',
-        cherry: 'cherry.json'
-    };
-
+    const matText = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.05 });
+    const matBase = new THREE.MeshPhysicalMaterial({ color: 0x3498db, roughness: 0.6, metalness: 0.05 });
     const mainGroup = new THREE.Group();
     scene.add(mainGroup);
 
-    let hasFittedOnce = false;
+    // --- UI LOGIC ---
+    const ui = {
+        dock: document.getElementById('ui-dock'),
+        steps: document.querySelectorAll('.step'),
+        track: document.querySelector('.progress-track'),
+        btnPrev: document.getElementById('btn-prev'),
+        btnNext: document.getElementById('btn-next'),
+        btnEye: document.getElementById('toggle-eye'),
+        btnDark: document.getElementById('toggle-dark'),
+        btnKey: document.getElementById('btn-key-toggle'),
+        loader: document.getElementById('loader'),
+        
+        keychain: document.getElementById('val-keychain'),
+        name: document.getElementById('val-name'),
+        font: document.getElementById('val-font'),
+        colorBody: document.getElementById('val-color-body'),
+        colorText: document.getElementById('val-color-text'),
+        gap: document.getElementById('val-gap'),
+        rot: document.getElementById('val-rot'),
+        altHeight: document.getElementById('val-alt-height'),
+        symbol: document.getElementById('val-symbol'),
+        exportBtn: document.getElementById('btn-export')
+    };
 
-    const elName = document.getElementById('inputName');
-    const elFont = document.getElementById('selectFont');
-    const elMsg = document.getElementById('loading-msg');
-    const elColorBody = document.getElementById('selectColorBody');
-    const elColorText = document.getElementById('selectColorText');
-    const elRot = document.getElementById('sliderRot');
-    const elHeight = document.getElementById('sliderHeight');
-    const elGapRatio = document.getElementById('sliderGapRatio');
-    const elSymbol = document.getElementById('selectSymbol');
-    const elKeychain = document.getElementById('selectKeychain');
+    let currentStep = 0;
+    const totalSteps = ui.steps.length;
 
-    const elExportStlButton = document.getElementById('exportStlButton');
-    const toggleUIButton = document.getElementById('toggle-ui');
-    const uiContainer = document.getElementById('ui-container');
+    for(let i=0; i<totalSteps; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'prog-dot';
+        ui.track.appendChild(dot);
+    }
+    const dots = document.querySelectorAll('.prog-dot');
 
-    function centerGroupAtOrigin(group) {
-        const box = new THREE.Box3().setFromObject(group);
-        if (box.isEmpty()) return;
-        const center = new THREE.Vector3();
-        box.getCenter(center);
-        group.position.sub(center);
+    function updateStep() {
+        ui.steps.forEach((s, i) => s.classList.toggle('active', i === currentStep));
+        dots.forEach((d, i) => {
+            d.classList.toggle('active', i === currentStep);
+            d.classList.toggle('completed', i < currentStep);
+        });
+        
+        ui.btnPrev.disabled = (currentStep === 0);
+        if (currentStep === totalSteps - 1) {
+            ui.btnNext.style.opacity = 0;
+            ui.btnNext.style.pointerEvents = 'none';
+        } else {
+            ui.btnNext.style.opacity = 1;
+            ui.btnNext.style.pointerEvents = 'all';
+        }
     }
 
-    function fitCameraToObject(object3D) {
-        const box = new THREE.Box3().setFromObject(object3D);
-        if (box.isEmpty()) return;
+    ui.btnPrev.onclick = () => { if(currentStep > 0) { currentStep--; updateStep(); }};
+    ui.btnNext.onclick = () => { if(currentStep < totalSteps - 1) { currentStep++; updateStep(); }};
+    
+    ui.btnEye.onclick = () => {
+        ui.dock.classList.toggle('minimized');
+        ui.btnEye.innerHTML = ui.dock.classList.contains('minimized') ? '<i class="ph ph-eye-slash"></i>' : '<i class="ph ph-eye"></i>';
+    };
 
-        const size = new THREE.Vector3();
-        const center = new THREE.Vector3();
-        box.getSize(size);
-        box.getCenter(center);
+    ui.btnDark.onclick = () => {
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        ui.btnDark.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
+        if(isDark) scene.fog = new THREE.FogExp2(0x0f172a, 0.0025); // Fog adapté au sombre
+        else scene.fog = new THREE.FogExp2(0xeef2ff, 0.0025);
+    };
 
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = camera.fov * (Math.PI / 180);
-        let dist = (maxDim / 2) / Math.tan(fov / 2);
-        dist *= 1.4;
+    // --- BINDINGS ---
+    
+    // Key Toggle Logic
+    ui.btnKey.onclick = () => {
+        const isLeftEyelet = ui.keychain.value === 'left_eyelet';
+        if(isLeftEyelet) {
+            ui.keychain.value = 'none';
+            ui.btnKey.classList.remove('active');
+            ui.btnKey.classList.add('inactive');
+        } else {
+            ui.keychain.value = 'left_eyelet';
+            ui.btnKey.classList.add('active');
+            ui.btnKey.classList.remove('inactive');
+        }
+        generateDesign();
+    };
 
-        camera.position.set(center.x, center.y + dist * 0.25, center.z + dist);
-        camera.near = dist / 10;
-        camera.far = dist * 10;
-        camera.updateProjectionMatrix();
-
-        controls.target.copy(center);
-        controls.update();
+    // Selectors
+    function setupSelector(id, inputId, callback) {
+        document.querySelectorAll(`#${id} .list-item`).forEach(opt => {
+            opt.onclick = () => {
+                document.querySelectorAll(`#${id} .list-item`).forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                document.getElementById(inputId).value = opt.dataset.val;
+                if(callback) callback(opt.dataset.val);
+                else generateDesign();
+            };
+        });
     }
+    setupSelector('font-selector', 'val-font', changeFont);
+    setupSelector('symbol-selector', 'val-symbol');
 
-    // Tous les symboles sont des Shape extrudés → à plat comme les lettres
+    // Color Palettes
+    function buildPalette(containerId, inputId, colorsArr) {
+        const container = document.getElementById(containerId);
+        const input = document.getElementById(inputId);
+        colorsArr.forEach(c => {
+            const btn = document.createElement('div');
+            btn.className = 'color-circle';
+            btn.style.backgroundColor = c;
+            btn.dataset.color = c;
+            if(c === input.value) btn.classList.add('selected');
+            btn.onclick = () => {
+                container.querySelectorAll('.color-circle').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                input.value = c;
+                generateDesign();
+            };
+            container.appendChild(btn);
+        });
+    }
+    buildPalette('palette-body', 'val-color-body', COLORS_BODY);
+    buildPalette('palette-text', 'val-color-text', COLORS_TEXT);
+
+    [ui.gap, ui.rot, ui.altHeight].forEach(el => el.addEventListener('input', generateDesign));
+    ui.name.addEventListener('input', generateDesign);
+
+    // --- 3D LOGIC ---
+    let currentFont = null;
+    const fontLoader = new FontLoader();
+    
+    const fontsDB = {
+        cherry: './cherry.json',
+        chango: './chango.json',
+        lucky: './lucky.json'
+    };
+
     function createSymbolMesh(type) {
         const r = LETTER_HEIGHT * SYMBOL_RADIUS_FACTOR;
-        let shape = null;
-
-        if (type === 'star') {
-            const innerRadius = r * 0.45;
-            shape = new THREE.Shape();
-            const numPoints = 5;
-            for (let i = 0; i < numPoints * 2; i++) {
-                const angle = (i / (numPoints * 2)) * Math.PI * 2;
-                const radius = (i % 2 === 0) ? r : innerRadius;
-                const x = Math.cos(angle) * radius;
-                const y = Math.sin(angle) * radius;
-                if (i === 0) shape.moveTo(x, y);
-                else shape.lineTo(x, y);
+        let shape = new THREE.Shape();
+        if(type === 'star') {
+            const inner = r * 0.45;
+            for (let i = 0; i < 10; i++) {
+                const ang = (i / 10) * Math.PI * 2 - Math.PI/2;
+                const rad = (i % 2 === 0) ? r : inner;
+                const x = Math.cos(ang) * rad; const y = Math.sin(ang) * rad;
+                i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y);
             }
             shape.closePath();
-        } else if (type === 'circle') {
-            shape = new THREE.Shape();
-            shape.absarc(0, 0, r, 0, Math.PI * 2, false);
-        } else if (type === 'diamond') {
-            shape = new THREE.Shape();
-            shape.moveTo(0, r);
-            shape.lineTo(r, 0);
-            shape.lineTo(0, -r);
-            shape.lineTo(-r, 0);
-            shape.closePath();
-        } else if (type === 'square') {
-            shape = new THREE.Shape();
-            const s = r;
-            shape.moveTo(-s, -s);
-            shape.lineTo(s, -s);
-            shape.lineTo(s, s);
-            shape.lineTo(-s, s);
-            shape.closePath();
-        } else if (type === 'triangle') {
-            shape = new THREE.Shape();
-            const h = r * 1.1;
-            shape.moveTo(0, h);
-            shape.lineTo(-r, -h * 0.4);
-            shape.lineTo(r, -h * 0.4);
-            shape.closePath();
-        } else if (type === 'heart') {
-            shape = new THREE.Shape();
-            const x = 0, y = 0;
-            const hr = r;
-            shape.moveTo(x, y + hr * 0.6);
-            shape.bezierCurveTo(
-                x + hr, y + hr * 1.4,
-                x + hr * 1.6, y,
-                x, y - hr
-            );
-            shape.bezierCurveTo(
-                x - hr * 1.6, y,
-                x - hr, y + hr * 1.4,
-                x, y + hr * 0.6
-            );
-        }
-
-        if (!shape) return null;
-
-        const extrudeSettings = {
-            depth: SYMBOL_EXTRUSION,
-            bevelEnabled: false
-        };
-
-        const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        } else if(type === 'heart') {
+            const x = 0, y = -r*0.3;
+            shape.moveTo(x, y + r * 0.6);
+            shape.bezierCurveTo(x + r, y + r * 1.4, x + r * 1.6, y, x, y - r);
+            shape.bezierCurveTo(x - r * 1.6, y, x - r, y + r * 1.4, x, y + r * 0.6);
+        } else if(type === 'crown') {
+            shape.moveTo(-r, -r*0.5); shape.lineTo(-r, r*0.2); shape.lineTo(-r*0.5, -r*0.2);
+            shape.lineTo(0, r*0.5); shape.lineTo(r*0.5, -r*0.2); shape.lineTo(r, r*0.2);
+            shape.lineTo(r, -r*0.5); shape.closePath();
+        } else if(type === 'cat') {
+            shape.moveTo(-r*0.8, -r*0.6); shape.lineTo(r*0.8, -r*0.6); shape.quadraticCurveTo(r, -r*0.6, r, -r*0.4);
+            shape.lineTo(r, 0); shape.lineTo(r*0.8, r*0.8); shape.lineTo(r*0.3, 0.4*r); shape.lineTo(-r*0.3, 0.4*r);
+            shape.lineTo(-r*0.8, r*0.8); shape.lineTo(-r, 0); shape.lineTo(-r, -r*0.4); shape.quadraticCurveTo(-r, -r*0.6, -r*0.8, -r*0.6);
+        } else return null;
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: SYMBOL_EXTRUSION, bevelEnabled: false });
         geo.center();
-
-        const mesh = new THREE.Mesh(geo, matPlastic);
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-
-        // Aligné comme les lettres : posé à plat sur le socle
+        const mesh = new THREE.Mesh(geo, matText);
+        mesh.castShadow = true; mesh.receiveShadow = true;
         mesh.rotation.x = -Math.PI / 2;
-
         return mesh;
     }
 
-    // Base rectangulaire, avec ou sans chanfrein
- function createBaseMesh(bodyW, bodyZDepth) {
-    const geo = new THREE.BoxGeometry(bodyW, BODY_THICKNESS, bodyZDepth);
-    const mesh = new THREE.Mesh(geo, matBody);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    return mesh;
-}
+    function createBaseMesh(width, depth) {
+        const shape = new THREE.Shape();
+        const r = 3; const w2 = width / 2; const h2 = depth / 2;
+        shape.moveTo(-w2 + r, -h2); shape.lineTo(w2 - r, -h2); shape.quadraticCurveTo(w2, -h2, w2, -h2 + r);
+        shape.lineTo(w2, h2 - r); shape.quadraticCurveTo(w2, h2, w2 - r, h2); shape.lineTo(-w2 + r, h2);
+        shape.quadraticCurveTo(-w2, h2, -w2, h2 - r); shape.lineTo(-w2, -h2 + r); shape.quadraticCurveTo(-w2, -h2, -w2 + r, -h2);
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: BODY_THICKNESS, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 4 });
+        geo.center();
+        const mesh = new THREE.Mesh(geo, matBase);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.rotation.x = -Math.PI / 2;
+        return mesh;
+    }
 
+    function createKeychainEyelet(width, depth) {
+        const tabRadius = 5; const shape = new THREE.Shape();
+        shape.moveTo(0, -tabRadius); shape.lineTo(tabRadius * 1.5, -tabRadius); shape.lineTo(tabRadius * 1.5, tabRadius);
+        shape.lineTo(0, tabRadius); shape.absarc(0, 0, tabRadius, Math.PI/2, -Math.PI/2, false);
+        const hole = new THREE.Path(); hole.absarc(0, 0, tabRadius * 0.45, 0, Math.PI*2, false); shape.holes.push(hole);
+        const geo = new THREE.ExtrudeGeometry(shape, { depth: BODY_THICKNESS, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 4 });
+        geo.center();
+        const mesh = new THREE.Mesh(geo, matBase);
+        mesh.castShadow = true; mesh.receiveShadow = true;
+        mesh.rotation.x = -Math.PI / 2;
+        return mesh;
+    }
 
-    // Oeillet de porte-clé à gauche, même largeur (Z) que la base
-function createKeychainEyeletLeft(bodyW, bodyZDepth, centerXOffset) {
-    const tabW = BODY_THICKNESS * 3.2;        // longueur de la languette (en X)
-    const tabZ = bodyZDepth;                  // même largeur que la base (en Z)
-    const halfW = tabW / 2;
-    const halfZ = tabZ / 2;
-
-    const shape = new THREE.Shape();
-
-    // --- Paramètres du trou (on garde ta logique) ---
-    const holeRadius = Math.min(halfW, halfZ) * 0.55;
-    const holeCenterX = -halfW * -0.15;   // = +0.15 * halfW
-
-    // Rayon des coins arrondis côté GAUCHE uniquement
-    const cornerRadius = Math.min(holeRadius, halfZ * 0.6);
-
-    // --- Contour avec côtés droits à droite, arrondis à gauche ---
-
-    // On part en bas à droite
-    shape.moveTo(halfW, -halfZ);
-
-    // Côté droit (vertical, sans arrondi)
-    shape.lineTo(halfW, halfZ);
-
-    // Bord haut, de droite vers gauche jusqu'au début de l'arrondi
-    shape.lineTo(-halfW + cornerRadius, halfZ);
-
-    // Arrondi coin haut-gauche
-    shape.quadraticCurveTo(-halfW, halfZ, -halfW, halfZ - cornerRadius);
-
-    // Côté gauche, vers le bas jusqu'au début de l'arrondi bas
-    shape.lineTo(-halfW, -halfZ + cornerRadius);
-
-    // Arrondi coin bas-gauche
-    shape.quadraticCurveTo(-halfW, -halfZ, -halfW + cornerRadius, -halfZ);
-
-    // Bord bas, retour vers la droite
-    shape.lineTo(halfW, -halfZ);
-
-    shape.closePath();
-
-    // --- Trou circulaire (comme tu l'avais) ---
-    const hole = new THREE.Path();
-    hole.absarc(holeCenterX, 0, holeRadius, 0, Math.PI * 2, false);
-    shape.holes.push(hole);
-
-    const extrudeSettings = {
-        depth: BODY_THICKNESS,
-        bevelEnabled: false
-    };
-
-    const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-    geo.center();
-
-    const mesh = new THREE.Mesh(geo, matBody);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    // posé à plat
-    mesh.rotation.x = -Math.PI / 2;
-
-    // position : collé au bord GAUCHE du socle
-    const tabCenterX = centerXOffset - bodyW / 2 - halfW * 0.7; // léger chevauchement
-    mesh.position.set(tabCenterX, BODY_THICKNESS / 2, 0);
-
-    return mesh;
-}
-
-    function generateUSB() {
-        if (!currentFont) {
-            elMsg.style.display = 'block';
-            return;
-        }
-        elMsg.style.display = 'none';
-
-        matPlastic.color.set(elColorText.value);
-        matBody.color.set(elColorBody.value);
+    function generateDesign() {
+        if (!currentFont) return;
+        matText.color.set(ui.colorText.value);
+        matBase.color.set(ui.colorBody.value);
 
         while (mainGroup.children.length > 0) {
             const obj = mainGroup.children[0];
@@ -574,161 +760,125 @@ function createKeychainEyeletLeft(bodyW, bodyZDepth, centerXOffset) {
             mainGroup.remove(obj);
         }
 
-        const LETTER_EXTRUSION_BASE = 2.5;
-        const BEVEL_THICKNESS = 0.2;
-        const BEVEL_SIZE = 0.1;
+        const textStr = (ui.name.value || ' ').toUpperCase();
+        const rotVal = parseFloat(ui.rot.value);
+        const gapRatio = parseFloat(ui.gap.value);
+        const altHeightVal = parseFloat(ui.altHeight.value); 
 
-        const textStr = (elName.value || ' ').toUpperCase();
-        const rotVal = parseFloat(elRot.value);
-        const heightVal = parseFloat(elHeight.value);
-        const gapRatio = parseFloat(elGapRatio.value);
-        const symbolType = elSymbol.value;
-        const keychainMode = elKeychain.value;
-
-
-        let currentX = 0;
         const lettersGroup = new THREE.Group();
+        let currentX = 0;
 
         for (let i = 0; i < textStr.length; i++) {
             const char = textStr[i];
-            const isPair = (i % 2 === 0);
+            if(char === ' ') { currentX += LETTER_HEIGHT * 0.5; continue; }
 
-            let extrusionDepth = LETTER_EXTRUSION_BASE + (isPair ? heightVal : -heightVal);
-            if (extrusionDepth < 0.5) extrusionDepth = 0.5;
+            // LOGIQUE HAUTEUR "BALANCE"
+            const BASE_H = 2.5;
+            const AMPLITUDE = 1.5; 
+            let extra = 0;
+            
+            if(altHeightVal !== 0) {
+                const factor = Math.abs(altHeightVal) * AMPLITUDE;
+                if(i % 2 === 0) {
+                    extra = (altHeightVal < 0) ? factor : -factor * 0.5; 
+                } else {
+                    extra = (altHeightVal > 0) ? factor : -factor * 0.5;
+                }
+            }
+            
+            let finalH = BASE_H + extra;
+            if(finalH < 0.5) finalH = 0.5;
 
             const textGeo = new TextGeometry(char, {
-                font: currentFont,
-                size: LETTER_HEIGHT,
-                height: extrusionDepth,
-                curveSegments: 6,
-                bevelEnabled: true,
-                bevelThickness: BEVEL_THICKNESS,
-                bevelSize: BEVEL_SIZE,
-                bevelSegments: 2
+                font: currentFont, size: LETTER_HEIGHT, height: finalH,
+                curveSegments: 4, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.2, bevelSegments: 2
             });
-
             textGeo.computeBoundingBox();
             const xSize = textGeo.boundingBox.max.x - textGeo.boundingBox.min.x;
             const ySize = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
-
-            textGeo.translate(-xSize / 2, -ySize / 2, 0);
-            textGeo.center();
-
-            const mesh = new THREE.Mesh(textGeo, matPlastic);
-            mesh.castShadow = true;
-            mesh.receiveShadow = true;
-
+            textGeo.translate(-xSize/2, -ySize/2, 0);
+            
+            const mesh = new THREE.Mesh(textGeo, matText);
             mesh.rotation.x = -Math.PI / 2;
-            mesh.rotation.z = isPair ? rotVal : -rotVal;
-
-            mesh.position.set(currentX + xSize / 2, BODY_THICKNESS, 0);
+            mesh.rotation.z = (i % 2 === 0) ? rotVal : -rotVal;
+            mesh.position.set(currentX + xSize/2, BODY_THICKNESS, 0);
+            mesh.castShadow = true; mesh.receiveShadow = true;
             lettersGroup.add(mesh);
-
-            currentX += (xSize * gapRatio);
+            currentX += (xSize * gapRatio) + (LETTER_HEIGHT * 0.1);
         }
 
-        const lettersBox = new THREE.Box3().setFromObject(lettersGroup);
         const contentGroup = new THREE.Group();
         contentGroup.add(lettersGroup);
 
-        if (symbolType !== 'none') {
-            const symbolMesh = createSymbolMesh(symbolType);
-            if (symbolMesh) {
-                const symBox0 = new THREE.Box3().setFromObject(symbolMesh);
-                const symWidth = symBox0.max.x - symBox0.min.x;
-                const symbolOffsetX = lettersBox.max.x + symWidth * 0.6;
-                symbolMesh.position.set(symbolOffsetX, BODY_THICKNESS, 0);
-                contentGroup.add(symbolMesh);
+        const symType = ui.symbol.value;
+        if (symType !== 'none') {
+            const symMesh = createSymbolMesh(symType);
+            if (symMesh) {
+                const lettersBox = new THREE.Box3().setFromObject(lettersGroup);
+                let lettersMaxX = lettersBox.isEmpty() ? 0 : lettersBox.max.x;
+                const symBox = new THREE.Box3().setFromObject(symMesh);
+                const symW = symBox.max.x - symBox.min.x;
+                symMesh.position.set(lettersMaxX + (LETTER_HEIGHT * 0.6) + symW/2, BODY_THICKNESS, 0);
+                contentGroup.add(symMesh);
             }
         }
 
         const contentBox = new THREE.Box3().setFromObject(contentGroup);
-        const wideX = contentBox.max.x - contentBox.min.x;
+        const contentW = contentBox.isEmpty() ? 10 : (contentBox.max.x - contentBox.min.x);
+        const baseW = contentW + 20;
+        const baseZ = LETTER_HEIGHT + 16;
+        const baseMesh = createBaseMesh(baseW, baseZ);
+        const centerX = contentBox.isEmpty() ? 0 : (contentBox.min.x + contentW / 2);
+        baseMesh.position.set(centerX, BODY_THICKNESS/2, 0); 
 
-        const MARGIN_X = 8;
-        const MARGIN_Z = 4;
+        const fullPiece = new THREE.Group();
+        fullPiece.add(baseMesh);
+        fullPiece.add(contentGroup);
 
-        const bodyW = wideX + MARGIN_X;
-        const bodyZDepth = LETTER_HEIGHT + MARGIN_Z;
-
-        const bodyMesh = createBaseMesh(bodyW, bodyZDepth);
-
-        const centerXOffset = contentBox.min.x + (wideX / 2);
-        bodyMesh.position.set(centerXOffset, BODY_THICKNESS / 2, 0);
-
-        const pieceGroup = new THREE.Group();
-        pieceGroup.add(bodyMesh);
-        pieceGroup.add(contentGroup);
-
-        // Ajout de l’œillet porte-clé à GAUCHE
-        if (keychainMode === 'left_eyelet') {
-            const eyelet = createKeychainEyeletLeft(bodyW, bodyZDepth, centerXOffset);
-            pieceGroup.add(eyelet);
+        if (ui.keychain.value === 'left_eyelet') {
+            const eyelet = createKeychainEyelet(baseW, baseZ);
+            const leftEdgeX = centerX - (baseW / 2);
+            eyelet.position.set(leftEdgeX - 1, BODY_THICKNESS/2, 0);
+            fullPiece.add(eyelet);
         }
 
-        centerGroupAtOrigin(pieceGroup);
-        mainGroup.add(pieceGroup);
+        const box = new THREE.Box3().setFromObject(fullPiece);
+        if (!box.isEmpty()) {
+            const center = new THREE.Vector3();
+            box.getCenter(center);
+            fullPiece.position.sub(center);
+            const newBox = new THREE.Box3().setFromObject(fullPiece);
+            fullPiece.position.y -= newBox.min.y;
+        }
+        mainGroup.add(fullPiece);
     }
 
-    function save(blob, filename) {
-        const link = document.createElement('a');
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        link.click();
-        document.body.removeChild(link);
+    function changeFont(key) {
+        ui.loader.style.opacity = 1;
+        fontLoader.load(fontsDB[key], (font) => {
+            currentFont = font;
+            generateDesign();
+            ui.loader.style.opacity = 0;
+            const box = new THREE.Box3().setFromObject(mainGroup);
+            if (!box.isEmpty()) {
+                const size = new THREE.Vector3(); box.getSize(size);
+                const max = Math.max(size.x, size.y, size.z);
+                controls.minDistance = max;
+            }
+        });
     }
 
-    function exportStl() {
+    ui.exportBtn.onclick = () => {
         if (mainGroup.children.length === 0) return;
         const exporter = new STLExporter();
         const result = exporter.parse(mainGroup, { binary: true });
-        const name = (elName.value || 'USB_CLE').toUpperCase();
-        save(new Blob([result], { type: 'application/octet-stream' }), `${name}_modele.stl`);
-    }
-
-    function changeFont(fontKey) {
-        const url = fontsDatabase[fontKey];
-        if (!url) return;
-
-        elMsg.style.display = 'block';
-        elMsg.innerText = `Chargement police : ${fontKey}...`;
-
-        fontLoader.load(
-            url,
-            function (font) {
-                currentFont = font;
-                elMsg.style.display = 'none';
-                generateUSB();
-
-                if (!hasFittedOnce) {
-                    fitCameraToObject(mainGroup);
-                    hasFittedOnce = true;
-                }
-            },
-            undefined,
-            function (err) {
-                console.error(`Erreur Critique de Chargement Police pour ${fontKey}:`, err);
-                elMsg.innerText = `Erreur de chargement pour ${fontKey}.`;
-            }
-        );
-    }
-
-    elName.addEventListener('input', generateUSB);
-    elFont.addEventListener('change', (e) => changeFont(e.target.value));
-    elColorBody.addEventListener('change', generateUSB);
-    elColorText.addEventListener('change', generateUSB);
-    elRot.addEventListener('input', generateUSB);
-    elHeight.addEventListener('input', generateUSB);
-    elGapRatio.addEventListener('input', generateUSB);
-    elSymbol.addEventListener('change', generateUSB);
-    elKeychain.addEventListener('change', generateUSB);
-    elExportStlButton.addEventListener('click', exportStl);
-
-    toggleUIButton.addEventListener('click', () => {
-        uiContainer.classList.toggle('hidden');
-    });
+        const cleanName = (ui.name.value || 'MODEL').replace(/[^a-zA-Z0-9]/g, '_');
+        const blob = new Blob([result], { type: 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${cleanName}.stl`;
+        link.click();
+    };
 
     window.addEventListener('resize', () => {
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -741,11 +891,11 @@ function createKeychainEyeletLeft(bodyW, bodyZDepth, centerXOffset) {
         controls.update();
         renderer.render(scene, camera);
     }
+
+    changeFont('cherry');
+    updateStep();
     animate();
 
-    elMsg.style.display = 'block';
-    changeFont('luckiest');
 </script>
-
 </body>
 </html>
