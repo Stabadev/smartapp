@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -571,18 +572,53 @@
     dirLight.shadow.camera.far = 250;
     
     scene.add(dirLight);
+
+    // Lumière de remplissage (Fill Light)
+    const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
+    fillLight.position.set(-60, 40, -30);
+    scene.add(fillLight);
+
+    // Lumière de contour (Rim Light) pour effet Apple
+    const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    rimLight.position.set(0, 120, -80);
+    rimLight.castShadow = false;
+    scene.add(rimLight);
+
     
+    //  Sol glossy semi-miroir
+    const groundMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.25,      // lissage
+        metalness: 0.55       // reflet Apple
+    });
+
     const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(600, 600), 
-        new THREE.ShadowMaterial({ opacity: 0.06 })
+        new THREE.PlaneGeometry(2000, 2000),
+        groundMaterial
     );
+
+
     ground.rotation.x = -Math.PI / 2;
     ground.position.y = -0.1;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    const matText = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.05 });
-    const matBase = new THREE.MeshPhysicalMaterial({ color: 0x3498db, roughness: 0.6, metalness: 0.05 });
+    const matText = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        roughness: 0.15,
+        metalness: 0.15,
+        clearcoat: 0.9,
+        clearcoatRoughness: 0.1
+    });
+
+    const matBase = new THREE.MeshPhysicalMaterial({
+        color: 0x3498db,
+        roughness: 0.35,
+        metalness: 0.25,
+        clearcoat: 0.75,
+        clearcoatRoughness: 0.2
+    });
+
     const mainGroup = new THREE.Group();
     scene.add(mainGroup);
 
@@ -649,49 +685,58 @@
     };
 
     ui.btnDark.onclick = () => {
-        document.body.classList.toggle('dark-mode');
-        const isDark = document.body.classList.contains('dark-mode');
-        ui.btnDark.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
+    document.body.classList.toggle('dark-mode');
+    const isDark = document.body.classList.contains('dark-mode');
+    ui.btnDark.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
 
-        if (isDark) {
-            // --- SCÈNE DARK MODE ---
-            
-            // 1. Fond du renderer (plus sombre)
-            renderer.setClearColor(0x0d1117, 1);  // gris bleu sombre GitHub-like
+    if (isDark) {
+        // --- SCÈNE APPLE NIGHT ---
 
-            // 2. Brouillard très doux mais sombre
-            scene.fog = new THREE.Fog(0x0d1117, FOG_NEAR, FOG_FAR);
+        // Fond sombre profond Apple Studio
+        renderer.setClearColor(0x0b0e12, 1);
+        scene.fog = new THREE.Fog(0x0b0e12, FOG_NEAR, FOG_FAR);
 
-            // 3. Lumière hémisphérique plus froide (nuit)
-            hemiLight.color.set(0xcad3e0);      // lumière du ciel froide
-            hemiLight.groundColor.set(0x1a1f27);
-            hemiLight.intensity = 0.35;
+        // Key light
+        dirLight.intensity = 1.2;
+        dirLight.position.set(30, 90, 50);
 
-            // 4. Lumière directionnelle plus dramatique
-            dirLight.color.set(0xffffff);
-            dirLight.intensity = 1.1;
-            dirLight.position.set(20, 100, 40);
+        // Fill light froide
+        fillLight.intensity = 0.25;
+        fillLight.color.set(0xaab7d1);
 
-            // 5. Sol assombri
-            ground.material.opacity = 0.10;  // réception d’ombres plus soft
+        // Rim light douce bleutée
+        rimLight.intensity = 0.7;
+        rimLight.color.set(0xbcd1ff);
 
-        } else {
-            // --- SCÈNE MODE CLAIR NORMAL ---
-            renderer.setClearColor(0xffffff, 1);
-            
-            scene.fog = new THREE.Fog(0xeef2ff, FOG_NEAR, FOG_FAR);
+        // Sol plus sombre
+        ground.material.color.set(0x1a1e24);
+        ground.material.roughness = 0.32;
+        ground.material.metalness = 0.45;
 
-            hemiLight.color.set(0xffffff);
-            hemiLight.groundColor.set(0xcccccc);
-            hemiLight.intensity = 0.5;
+    } else {
+        // --- SCÈNE APPLE DAY ---
 
-            dirLight.color.set(0xffffff);
-            dirLight.intensity = 1.8;
-            dirLight.position.set(40, 80, 60);
+        renderer.setClearColor(0xffffff, 1);
+        scene.fog = new THREE.Fog(0xeef2ff, FOG_NEAR, FOG_FAR);
 
-            ground.material.opacity = 0.06;
-        }
-    };
+        // Lumière principale
+        dirLight.intensity = 1.6;
+        dirLight.position.set(50, 110, 70);
+
+        // Lumière de remplissage
+        fillLight.intensity = 0.4;
+        fillLight.color.set(0xffffff);
+
+        // Lumière de contour
+        rimLight.intensity = 0.8;
+        rimLight.color.set(0xffffff);
+
+        // Sol clair premium
+        ground.material.color.set(0xffffff);
+        ground.material.roughness = 0.25;
+        ground.material.metalness = 0.55;
+    }
+};
 
 
         // --- RESET LOGIC ---
@@ -1074,11 +1119,10 @@
         camera.updateProjectionMatrix();
     });
 
-    function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-    }
+renderer.setAnimationLoop(() => {
+    controls.update();
+    renderer.render(scene, camera);
+});
 
     changeFont('cherry');
     updateStep();
