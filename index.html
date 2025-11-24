@@ -652,10 +652,47 @@
         document.body.classList.toggle('dark-mode');
         const isDark = document.body.classList.contains('dark-mode');
         ui.btnDark.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
-        
-        const fogColor = isDark ? 0x0f172a : 0xeef2ff;
-        scene.fog = new THREE.Fog(fogColor, FOG_NEAR, FOG_FAR);
+
+        if (isDark) {
+            // --- SCÈNE DARK MODE ---
+            
+            // 1. Fond du renderer (plus sombre)
+            renderer.setClearColor(0x0d1117, 1);  // gris bleu sombre GitHub-like
+
+            // 2. Brouillard très doux mais sombre
+            scene.fog = new THREE.Fog(0x0d1117, FOG_NEAR, FOG_FAR);
+
+            // 3. Lumière hémisphérique plus froide (nuit)
+            hemiLight.color.set(0xcad3e0);      // lumière du ciel froide
+            hemiLight.groundColor.set(0x1a1f27);
+            hemiLight.intensity = 0.35;
+
+            // 4. Lumière directionnelle plus dramatique
+            dirLight.color.set(0xffffff);
+            dirLight.intensity = 1.1;
+            dirLight.position.set(20, 100, 40);
+
+            // 5. Sol assombri
+            ground.material.opacity = 0.10;  // réception d’ombres plus soft
+
+        } else {
+            // --- SCÈNE MODE CLAIR NORMAL ---
+            renderer.setClearColor(0xffffff, 1);
+            
+            scene.fog = new THREE.Fog(0xeef2ff, FOG_NEAR, FOG_FAR);
+
+            hemiLight.color.set(0xffffff);
+            hemiLight.groundColor.set(0xcccccc);
+            hemiLight.intensity = 0.5;
+
+            dirLight.color.set(0xffffff);
+            dirLight.intensity = 1.8;
+            dirLight.position.set(40, 80, 60);
+
+            ground.material.opacity = 0.06;
+        }
     };
+
 
         // --- RESET LOGIC ---
     ui.btnReset.onclick = () => {
