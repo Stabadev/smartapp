@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -440,13 +439,13 @@
             <div class="step" data-step="3">
                 <div class="step-indicator-icon"><i class="ph ph-square-fill"></i></div>
                 <div class="h-scroll-list center-items" id="palette-body"></div>
-                <input type="hidden" id="val-color-body" value="#3498db">
+                <input type="hidden" id="val-color-body" value="#FF007F">
             </div>
 
             <div class="step" data-step="4">
                 <div class="step-indicator-icon"><i class="ph ph-text-t"></i></div>
                 <div class="h-scroll-list center-items" id="palette-text"></div>
-                <input type="hidden" id="val-color-text" value="#ffffff">
+                <input type="hidden" id="val-color-text" value="#FFFFFF">
             </div>
 
             <div class="step" data-step="5">
@@ -516,618 +515,846 @@
 </script>
 
 <script type="module">
-    import * as THREE from 'three';
-    import { FontLoader } from 'three/addons/loaders/FontLoader.js';
-    import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-    import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+import * as THREE from 'three';
+import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 
-    // --- CONFIG ---
-    const LETTER_HEIGHT = 12;
-    const BODY_THICKNESS = 4;
-    const SYMBOL_EXTRUSION = 3;
-    const SYMBOL_RADIUS_FACTOR = 0.45; 
+/* ---------------------------------------------------------------------------------
+    CONFIG
+--------------------------------------------------------------------------------- */
 
-    const COLORS_BODY = ['#3498db', '#2ecc71', '#e67e22', '#34495e'];
-    const COLORS_TEXT = ['#ffffff', '#f1c40f', '#000000', '#e74c3c'];
+const LETTER_HEIGHT = 12;
+const BODY_THICKNESS = 4;
+const SYMBOL_EXTRUSION = 3;
+const SYMBOL_RADIUS_FACTOR = 0.45; 
 
-    // --- SCENE SETUP ---
-    const scene = new THREE.Scene();
+const COLORS_BODY = [
+    '#FF007F', // Rose néon
+    '#FF00FF', // Magenta électrique
+    '#FF1493', // Fuchsia intense
+    '#FF4D00', // Orange néon
+    '#FF8C00', // Orange haute intensité
+    '#FFFF00', // Jaune néon pur
+    '#CCFF00', // Jaune-vert phospho
+    '#00FF00', // Vert laser
+    '#32FF32', // Vert néon doux
+    '#00FF7F', // Vert menthe néon
+    '#00FFFF', // Cyan néon
+    '#00AFFF', // Bleu néon pur
+    '#008BFF', // Bleu électrique saturé
+    '#4D00FF', // Violet laser
+    '#7D00FF', // Violet néon
+    '#FF00CC', // Magenta rose
+    '#FF0066', // Rouge-rose néon
+    '#FF3300'  // Rouge orange néon
+];
+
+const COLORS_TEXT = [
+    '#FFFFFF', // blanc pur ultra contrasté
+    '#FFFF00', // jaune néon
+    '#FF00FF', // magenta pur
+    '#00FFFF', // cyan pur
+    '#00FF00', // vert laser
+    '#FF4D00', // orange néon
+    '#FF1493', // fuchsia
+    '#00AFFF', // bleu néon
+    '#4D00FF', // violet laser
+    '#00FF7F', // vert menthe néon
+    '#FF3300', // rouge orange néon
+    '#CCFF00'  // jaune-vert phosphorescent
+];
+
+
+
+/* ---------------------------------------------------------------------------------
+    SCENE SETUP
+--------------------------------------------------------------------------------- */
+
+const scene = new THREE.Scene();
+const FOG_NEAR = 750;
+const FOG_FAR = 1500;
+scene.fog = new THREE.Fog(0xeef2ff, FOG_NEAR, FOG_FAR);
+
+const camera = new THREE.PerspectiveCamera(
+    45,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+camera.position.set(0, 90, 110);
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    alpha: true
+});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.maxDistance = 400;
+controls.target.set(0, -10, 0);
+
+/* ---------------------------------------------------------------------------------
+    LIGHTS
+--------------------------------------------------------------------------------- */
+
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xcccccc, 0.5);
+scene.add(hemiLight);
+
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
+dirLight.position.set(40, 80, 60);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.set(2048, 2048);
+
+const shadowCameraSize = 150;
+dirLight.shadow.camera.left = -shadowCameraSize;
+dirLight.shadow.camera.right = shadowCameraSize;
+dirLight.shadow.camera.top = shadowCameraSize;
+dirLight.shadow.camera.bottom = -shadowCameraSize;
+dirLight.shadow.camera.far = 250;
+
+scene.add(dirLight);
+
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
+fillLight.position.set(-60, 40, -30);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
+rimLight.position.set(0, 120, -80);
+scene.add(rimLight);
+
+const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.25,
+    metalness: 0.55
+});
+const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(2000, 2000),
+    groundMaterial
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.1;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* ---------------------------------------------------------------------------------
+    MATERIALS
+--------------------------------------------------------------------------------- */
+
+const matText = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff,
+    roughness: 0.15,
+    metalness: 0.15,
+    clearcoat: 0.9,
+    clearcoatRoughness: 0.1
+});
+
+const matBase = new THREE.MeshPhysicalMaterial({
+    color: 0x3498db,
+    roughness: 0.35,
+    metalness: 0.25,
+    clearcoat: 0.75,
+    clearcoatRoughness: 0.2
+});
+
+/* ---------------------------------------------------------------------------------
+    GROUP PRINCIPAL
+--------------------------------------------------------------------------------- */
+const mainGroup = new THREE.Group();
+scene.add(mainGroup);
+
+/* ---------------------------------------------------------------------------------
+    UI
+--------------------------------------------------------------------------------- */
+
+const ui = {
+    dock: document.getElementById('ui-dock'),
+    steps: document.querySelectorAll('.step'),
+    track: document.querySelector('.progress-track'),
+    btnPrev: document.getElementById('btn-prev'),
+    btnNext: document.getElementById('btn-next'),
+    btnEye: document.getElementById('toggle-eye'),
+    btnDark: document.getElementById('toggle-dark'),
+    btnReset: document.getElementById('btn-reset'),
+
+    btnKey: document.getElementById('btn-key-toggle'),
+    loader: document.getElementById('loader'),
     
-    // Paramètres de brouillard Linéaire
-    const FOG_NEAR = 750; 
-    const FOG_FAR = 1500;
-    scene.fog = new THREE.Fog(0xeef2ff, FOG_NEAR, FOG_FAR);
-    
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 90, 110);
+    keychain: document.getElementById('val-keychain'),
+    name: document.getElementById('val-name'),
+    font: document.getElementById('val-font'),
+    colorBody: document.getElementById('val-color-body'),
+    colorText: document.getElementById('val-color-text'),
+    gap: document.getElementById('val-gap'),
+    rot: document.getElementById('val-rot'),
+    altHeight: document.getElementById('val-alt-height'),
+    sway: document.getElementById('val-sway'),
+    symbol: document.getElementById('val-symbol'),
+    exportBtn: document.getElementById('btn-export')
+};
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    document.getElementById('canvas-container').appendChild(renderer.domElement);
-    
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxDistance = 400;
-    controls.target.set(0, -10, 0);
+let currentStep = 0;
+const totalSteps = ui.steps.length;
 
-    // ÉCLAIRAGE
-    
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0xcccccc, 0.5);
-    scene.add(hemiLight);
+/* ---------------------------------------------------------------------------------
+    PROGRESS DOTS
+--------------------------------------------------------------------------------- */
+for (let i = 0; i < totalSteps; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'prog-dot';
+    ui.track.appendChild(dot);
+}
+const dots = document.querySelectorAll('.prog-dot');
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.8);
-    dirLight.position.set(40, 80, 60);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(2048, 2048);
-    
-    const shadowCameraSize = 150; 
-    dirLight.shadow.camera.left = -shadowCameraSize;
-    dirLight.shadow.camera.right = shadowCameraSize;
-    dirLight.shadow.camera.top = shadowCameraSize;
-    dirLight.shadow.camera.bottom = -shadowCameraSize;
-    dirLight.shadow.camera.far = 250;
-    
-    scene.add(dirLight);
-
-    // Lumière de remplissage (Fill Light)
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.35);
-    fillLight.position.set(-60, 40, -30);
-    scene.add(fillLight);
-
-    // Lumière de contour (Rim Light) pour effet Apple
-    const rimLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    rimLight.position.set(0, 120, -80);
-    rimLight.castShadow = false;
-    scene.add(rimLight);
-
-    
-    //  Sol glossy semi-miroir
-    const groundMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffffff,
-        roughness: 0.25,      // lissage
-        metalness: 0.55       // reflet Apple
+function updateStep() {
+    ui.steps.forEach((s, i) => s.classList.toggle('active', i === currentStep));
+    dots.forEach((d, i) => {
+        d.classList.toggle('active', i === currentStep);
+        d.classList.toggle('completed', i < currentStep);
     });
 
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(2000, 2000),
-        groundMaterial
-    );
+    ui.btnPrev.disabled = (currentStep === 0);
+    ui.btnNext.style.opacity = (currentStep === totalSteps - 1) ? 0 : 1;
+    ui.btnNext.style.pointerEvents = (currentStep === totalSteps - 1) ? "none" : "all";
+}
 
+ui.btnPrev.onclick = () => { if (currentStep > 0) currentStep--, updateStep(); };
+ui.btnNext.onclick = () => { if (currentStep < totalSteps - 1) currentStep++, updateStep(); };
 
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.1;
-    ground.receiveShadow = true;
-    scene.add(ground);
+ui.btnEye.onclick = () => {
+    ui.dock.classList.toggle('minimized');
+    ui.btnEye.innerHTML = ui.dock.classList.contains('minimized')
+        ? '<i class="ph ph-eye-slash"></i>'
+        : '<i class="ph ph-eye"></i>';
+};
 
-    const matText = new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        roughness: 0.15,
-        metalness: 0.15,
-        clearcoat: 0.9,
-        clearcoatRoughness: 0.1
-    });
+/* ---------------------------------------------------------------------------------
+    DARK MODE
+--------------------------------------------------------------------------------- */
 
-    const matBase = new THREE.MeshPhysicalMaterial({
-        color: 0x3498db,
-        roughness: 0.35,
-        metalness: 0.25,
-        clearcoat: 0.75,
-        clearcoatRoughness: 0.2
-    });
-
-    const mainGroup = new THREE.Group();
-    scene.add(mainGroup);
-
-    // --- UI LOGIC ---
-    const ui = {
-        dock: document.getElementById('ui-dock'),
-        steps: document.querySelectorAll('.step'),
-        track: document.querySelector('.progress-track'),
-        btnPrev: document.getElementById('btn-prev'),
-        btnNext: document.getElementById('btn-next'),
-        btnEye: document.getElementById('toggle-eye'),
-        btnDark: document.getElementById('toggle-dark'),
-        btnReset: document.getElementById('btn-reset'),
-
-        btnKey: document.getElementById('btn-key-toggle'),
-        loader: document.getElementById('loader'),
-        
-        keychain: document.getElementById('val-keychain'),
-        name: document.getElementById('val-name'),
-        font: document.getElementById('val-font'),
-        colorBody: document.getElementById('val-color-body'),
-        colorText: document.getElementById('val-color-text'),
-        gap: document.getElementById('val-gap'),
-        rot: document.getElementById('val-rot'),
-        altHeight: document.getElementById('val-alt-height'),
-        sway: document.getElementById('val-sway'),
-        symbol: document.getElementById('val-symbol'),
-        exportBtn: document.getElementById('btn-export')
-    };
-
-    let currentStep = 0;
-    const totalSteps = ui.steps.length;
-
-    for(let i=0; i<totalSteps; i++) {
-        const dot = document.createElement('div');
-        dot.className = 'prog-dot';
-        ui.track.appendChild(dot);
-    }
-    const dots = document.querySelectorAll('.prog-dot');
-
-    function updateStep() {
-        ui.steps.forEach((s, i) => s.classList.toggle('active', i === currentStep));
-        dots.forEach((d, i) => {
-            d.classList.toggle('active', i === currentStep);
-            d.classList.toggle('completed', i < currentStep);
-        });
-        
-        ui.btnPrev.disabled = (currentStep === 0);
-        if (currentStep === totalSteps - 1) {
-            ui.btnNext.style.opacity = 0;
-            ui.btnNext.style.pointerEvents = 'none';
-        } else {
-            ui.btnNext.style.opacity = 1;
-            ui.btnNext.style.pointerEvents = 'all';
-        }
-    }
-
-    ui.btnPrev.onclick = () => { if(currentStep > 0) { currentStep--; updateStep(); }};
-    ui.btnNext.onclick = () => { if(currentStep < totalSteps - 1) { currentStep++; updateStep(); }};
-    
-    ui.btnEye.onclick = () => {
-        ui.dock.classList.toggle('minimized');
-        ui.btnEye.innerHTML = ui.dock.classList.contains('minimized') ? '<i class="ph ph-eye-slash"></i>' : '<i class="ph ph-eye"></i>';
-    };
-
-    ui.btnDark.onclick = () => {
+ui.btnDark.onclick = () => {
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
     ui.btnDark.innerHTML = isDark ? '<i class="ph ph-sun"></i>' : '<i class="ph ph-moon"></i>';
 
     if (isDark) {
-        // --- SCÈNE APPLE NIGHT ---
-
-        // Fond sombre profond Apple Studio
         renderer.setClearColor(0x0b0e12, 1);
         scene.fog = new THREE.Fog(0x0b0e12, FOG_NEAR, FOG_FAR);
 
-        // Key light
         dirLight.intensity = 1.2;
         dirLight.position.set(30, 90, 50);
 
-        // Fill light froide
         fillLight.intensity = 0.25;
         fillLight.color.set(0xaab7d1);
 
-        // Rim light douce bleutée
         rimLight.intensity = 0.7;
         rimLight.color.set(0xbcd1ff);
 
-        // Sol plus sombre
         ground.material.color.set(0x1a1e24);
         ground.material.roughness = 0.32;
         ground.material.metalness = 0.45;
 
     } else {
-        // --- SCÈNE APPLE DAY ---
-
         renderer.setClearColor(0xffffff, 1);
         scene.fog = new THREE.Fog(0xeef2ff, FOG_NEAR, FOG_FAR);
 
-        // Lumière principale
         dirLight.intensity = 1.6;
         dirLight.position.set(50, 110, 70);
 
-        // Lumière de remplissage
         fillLight.intensity = 0.4;
         fillLight.color.set(0xffffff);
 
-        // Lumière de contour
         rimLight.intensity = 0.8;
         rimLight.color.set(0xffffff);
 
-        // Sol clair premium
         ground.material.color.set(0xffffff);
         ground.material.roughness = 0.25;
         ground.material.metalness = 0.55;
     }
 };
 
+/* ---------------------------------------------------------------------------------
+    RESET BUTTON
+--------------------------------------------------------------------------------- */
 
-        // --- RESET LOGIC ---
-    ui.btnReset.onclick = () => {
+ui.btnReset.onclick = () => {
+    const userText = ui.name.value;
 
-        // Sauvegarder le texte saisi par l’utilisateur
-        const userText = ui.name.value;
+    // 1. keychain
+    ui.keychain.value = 'left_eyelet';
+    ui.btnKey.classList.add('active');
+    ui.btnKey.classList.remove('inactive');
 
-        // Remise à zéro des réglages
+    // 2. police
+    ui.font.value = 'cherry';
+    document.querySelectorAll('#font-selector .list-item')
+        .forEach(el => el.classList.remove('selected'));
+    document
+        .querySelectorAll('#font-selector .list-item[data-val="cherry"]')
+        .forEach(el => el.classList.add('selected'));
+
+    // 3. couleurs par défaut cohérentes avec les palettes
+    const DEFAULT_BODY = COLORS_BODY[0];
+    const DEFAULT_TEXT = COLORS_TEXT[0];
+
+    ui.colorBody.value = DEFAULT_BODY;
+    ui.colorText.value = DEFAULT_TEXT;
+
+    // body
+    document.querySelectorAll('#palette-body .color-circle')
+        .forEach(el => el.classList.remove('selected'));
+    document
+        .querySelectorAll(`#palette-body .color-circle[data-color="${DEFAULT_BODY}"]`)
+        .forEach(el => el.classList.add('selected'));
+
+    // text
+    document.querySelectorAll('#palette-text .color-circle')
+        .forEach(el => el.classList.remove('selected'));
+    document
+        .querySelectorAll(`#palette-text .color-circle[data-color="${DEFAULT_TEXT}"]`)
+        .forEach(el => el.classList.add('selected'));
+
+    // 4. sliders
+    ui.gap.value = 0.98;
+    ui.rot.value = 0;
+    ui.altHeight.value = 0;
+    ui.sway.value = 0;
+
+    // 5. symboles
+    ui.symbol.value = 'none';
+    document.querySelectorAll('#symbol-selector .list-item')
+        .forEach(el => el.classList.remove('selected'));
+    document
+        .querySelectorAll('#symbol-selector .list-item[data-val="none"]')
+        .forEach(el => el.classList.add('selected'));
+
+    // 6. on garde le texte utilisateur
+    ui.name.value = userText;
+
+    // 7. regen
+    changeFont('cherry');
+    generateDesign();
+    updateStep();
+};
+
+
+/* ---------------------------------------------------------------------------------
+    KEY TOGGLE
+--------------------------------------------------------------------------------- */
+
+ui.btnKey.onclick = () => {
+    const isLeftEyelet = ui.keychain.value === 'left_eyelet';
+    if (isLeftEyelet) {
+        ui.keychain.value = 'none';
+        ui.btnKey.classList.remove('active');
+        ui.btnKey.classList.add('inactive');
+    } else {
         ui.keychain.value = 'left_eyelet';
         ui.btnKey.classList.add('active');
         ui.btnKey.classList.remove('inactive');
-
-        ui.font.value = 'cherry';
-        document.querySelectorAll('#font-selector .list-item').forEach(el => el.classList.remove('selected'));
-        document.querySelector('#font-selector .list-item[data-val="cherry"]').classList.add('selected');
-
-        ui.colorBody.value = '#3498db';
-        ui.colorText.value = '#ffffff';
-        
-        document.querySelectorAll('#palette-body .color-circle').forEach(el => el.classList.remove('selected'));
-        document.querySelector('#palette-body .color-circle[data-color="#3498db"]').classList.add('selected');
-
-        document.querySelectorAll('#palette-text .color-circle').forEach(el => el.classList.remove('selected'));
-        document.querySelector('#palette-text .color-circle[data-color="#ffffff"]').classList.add('selected');
-
-        ui.gap.value = 0.98;
-        ui.rot.value = 0;
-        ui.altHeight.value = 0;
-        ui.sway.value = 0;
-
-        ui.symbol.value = 'none';
-        document.querySelectorAll('#symbol-selector .list-item').forEach(el => el.classList.remove('selected'));
-        document.querySelector('#symbol-selector .list-item[data-val="none"]').classList.add('selected');
-
-        // Restaure le mot de l’utilisateur
-        ui.name.value = userText;
-
-        // Reconstruit l’objet 3D
-        changeFont('cherry');
-        generateDesign();
-        updateStep();
-    };
-
-
-    // --- BINDINGS ---
-    
-    // Key Toggle Logic
-    ui.btnKey.onclick = () => {
-        const isLeftEyelet = ui.keychain.value === 'left_eyelet';
-        if(isLeftEyelet) {
-            ui.keychain.value = 'none';
-            ui.btnKey.classList.remove('active');
-            ui.btnKey.classList.add('inactive');
-        } else {
-            ui.keychain.value = 'left_eyelet';
-            ui.btnKey.classList.add('active');
-            ui.btnKey.classList.remove('inactive');
-        }
-        generateDesign();
-    };
-
-    // Selectors
-    function setupSelector(id, inputId, callback) {
-        document.querySelectorAll(`#${id} .list-item`).forEach(opt => {
-            opt.onclick = () => {
-                document.querySelectorAll(`#${id} .list-item`).forEach(o => o.classList.remove('selected'));
-                document.querySelectorAll(`#${id} .list-item[data-val="${opt.dataset.val}"]`).forEach(o => o.classList.add('selected'));
-
-                document.getElementById(inputId).value = opt.dataset.val;
-                if(callback) callback(opt.dataset.val);
-                else generateDesign();
-            };
-        });
     }
-    setupSelector('font-selector', 'val-font', changeFont);
-    setupSelector('symbol-selector', 'val-symbol');
+    generateDesign();
+};
 
-    // Color Palettes
-    function buildPalette(containerId, inputId, colorsArr) {
-        const container = document.getElementById(containerId);
-        const input = document.getElementById(inputId);
-        colorsArr.forEach(c => {
-            const btn = document.createElement('div');
-            btn.className = 'color-circle';
-            btn.style.backgroundColor = c;
-            btn.dataset.color = c;
-            if(c === input.value) btn.classList.add('selected');
-            btn.onclick = () => {
-                const allButtons = container.querySelectorAll('.color-circle');
-                allButtons.forEach(b => b.classList.remove('selected'));
-                
-                container.querySelectorAll(`.color-circle[data-color="${c}"]`).forEach(b => b.classList.add('selected'));
-                
-                input.value = c;
-                generateDesign();
-            };
-            container.appendChild(btn);
-        });
-    }
-    
-    // Carrousel "infini" (duplication visuelle)
-    function enableInfiniteScroll(containerId) {
-        const container = document.getElementById(containerId);
-        const originalItems = Array.from(container.children);
+/* ---------------------------------------------------------------------------------
+    SELECTOR LOGIC
+--------------------------------------------------------------------------------- */
 
-        for (let i = 0; i < 2; i++) {
-            originalItems.forEach(item => {
-                const clone = item.cloneNode(true);
-                if (item.dataset.val) clone.dataset.val = item.dataset.val;
-                if (item.dataset.color) clone.dataset.color = item.dataset.color;
-                
-                const originalClick = item.onclick;
-                if(originalClick) clone.onclick = originalClick;
-                
-                if (item.classList.contains('selected')) {
-                    clone.classList.add('selected');
-                } else {
-                    clone.classList.remove('selected');
-                }
+function setupSelector(id, inputId, callback) {
+    document.querySelectorAll(`#${id} .list-item`).forEach(opt => {
+        opt.onclick = () => {
+            document.querySelectorAll(`#${id} .list-item`)
+                .forEach(o => o.classList.remove('selected'));
 
-                container.appendChild(clone);
-            });
-        }
-    }
+            document.querySelectorAll(`#${id} .list-item[data-val="${opt.dataset.val}"]`)
+                .forEach(o => o.classList.add('selected'));
 
-    buildPalette('palette-body', 'val-color-body', COLORS_BODY);
-    buildPalette('palette-text', 'val-color-text', COLORS_TEXT);
-    
-    enableInfiniteScroll('font-selector');
-    enableInfiniteScroll('palette-body');
-    enableInfiniteScroll('palette-text');
-    enableInfiniteScroll('symbol-selector');
-
-    // Ajuste la distance de la caméra au bounding box de l'objet
-    function fitCameraToSelection(object, controls, paddingFactor = 1.2) {
-        const box = new THREE.Box3().setFromObject(object);
-        if (box.isEmpty()) return;
-
-        const size = new THREE.Vector3();
-        box.getSize(size);
-        
-        const halfSizeToFitOnScreen = Math.max(size.x, size.y, size.z) / 2;
-        const halfFovY = THREE.MathUtils.degToRad(camera.fov / 2);
-        let distance = halfSizeToFitOnScreen / Math.tan(halfFovY);
-        
-        distance *= paddingFactor;
-
-        controls.dollyTo(distance); 
-        controls.update();
-        camera.updateProjectionMatrix();
-    }
-
-    // Binding pour l'écartement
-    ui.gap.addEventListener('input', () => {
-        generateDesign();
-        fitCameraToSelection(mainGroup, controls, 1.3);
+            document.getElementById(inputId).value = opt.dataset.val;
+            callback ? callback(opt.dataset.val) : generateDesign();
+        };
     });
-    
-    // Binding pour les autres paramètres de forme (rot, altitude, quinconce)
-    [ui.rot, ui.altHeight, ui.sway].forEach(el => 
-        el.addEventListener('input', generateDesign)
-    );
-    ui.name.addEventListener('input', generateDesign);
+}
 
-    // --- 3D LOGIC ---
-    let currentFont = null;
-    const fontLoader = new FontLoader();
-    
-    const fontsDB = {
-        cherry: './cherry.json',
-        chango: './chango.json',
-        lucky: './lucky.json'
-    };
+/* ---------------------------------------------------------------------------------
+    COLOR PALETTE
+--------------------------------------------------------------------------------- */
 
-    function createSymbolMesh(type) {
-        const r = LETTER_HEIGHT * SYMBOL_RADIUS_FACTOR;
-        let shape = new THREE.Shape();
-        if(type === 'star') {
-            const inner = r * 0.45;
-            for (let i = 0; i < 10; i++) {
-                const ang = (i / 10) * Math.PI * 2 - Math.PI/2;
-                const rad = (i % 2 === 0) ? r : inner;
-                const x = Math.cos(ang) * rad; const y = Math.sin(ang) * rad;
-                i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y);
-            }
-            shape.closePath();
-        } else if(type === 'heart') {
-            const x = 0, y = -r*0.3;
-            shape.moveTo(x, y + r * 0.6);
-            shape.bezierCurveTo(x + r, y + r * 1.4, x + r * 1.6, y, x, y - r);
-            shape.bezierCurveTo(x - r * 1.6, y, x - r, y + r * 1.4, x, y + r * 0.6);
-        } else if(type === 'crown') {
-            shape.moveTo(-r, -r*0.5); shape.lineTo(-r, r*0.2); shape.lineTo(-r*0.5, -r*0.2);
-            shape.lineTo(0, r*0.5); shape.lineTo(r*0.5, -r*0.2); shape.lineTo(r, r*0.2);
-            shape.lineTo(r, -r*0.5); shape.closePath();
-        } else if(type === 'cat') {
-            shape.moveTo(-r*0.8, -r*0.6); shape.lineTo(r*0.8, -r*0.6); shape.quadraticCurveTo(r, -r*0.6, r, -r*0.4);
-            shape.lineTo(r, 0); shape.lineTo(r*0.8, r*0.8); shape.lineTo(r*0.3, 0.4*r); shape.lineTo(-r*0.3, 0.4*r);
-            shape.lineTo(-r*0.8, r*0.8); shape.lineTo(-r, 0); shape.lineTo(-r, -r*0.4); shape.quadraticCurveTo(-r, -r*0.6, -r*0.8, -r*0.6);
-        } else return null;
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: SYMBOL_EXTRUSION, bevelEnabled: false });
-        geo.center();
-        const mesh = new THREE.Mesh(geo, matText);
-        mesh.castShadow = true; mesh.receiveShadow = true;
-        mesh.rotation.x = -Math.PI / 2;
-        return mesh;
-    }
+function buildPalette(containerId, inputId, colorsArr) {
+    const container = document.getElementById(containerId);
+    const input = document.getElementById(inputId);
 
-    function createBaseMesh(width, depth) {
-        const shape = new THREE.Shape();
-        const r = 3; const w2 = width / 2; const h2 = depth / 2;
-        shape.moveTo(-w2 + r, -h2); shape.lineTo(w2 - r, -h2); shape.quadraticCurveTo(w2, -h2, w2, -h2 + r);
-        shape.lineTo(w2, h2 - r); shape.quadraticCurveTo(w2, h2, w2 - r, h2); shape.lineTo(-w2 + r, h2);
-        shape.quadraticCurveTo(-w2, h2, -w2, h2 - r); shape.lineTo(-w2, -h2 + r); shape.quadraticCurveTo(-w2, -h2, -w2 + r, -h2);
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: BODY_THICKNESS, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 4 });
-        geo.center();
-        const mesh = new THREE.Mesh(geo, matBase);
-        mesh.castShadow = true; mesh.receiveShadow = true;
-        mesh.rotation.x = -Math.PI / 2;
-        return mesh;
-    }
+    colorsArr.forEach(c => {
+        const btn = document.createElement('div');
+        btn.className = 'color-circle';
+        btn.style.backgroundColor = c;
+        btn.dataset.color = c;
 
-    function createKeychainEyelet(width, depth) {
-        const tabRadius = 5; const shape = new THREE.Shape();
-        shape.moveTo(0, -tabRadius); shape.lineTo(tabRadius * 1.5, -tabRadius); shape.lineTo(tabRadius * 1.5, tabRadius);
-        shape.lineTo(0, tabRadius); shape.absarc(0, 0, tabRadius, Math.PI/2, -Math.PI/2, false);
-        const hole = new THREE.Path(); hole.absarc(0, 0, tabRadius * 0.45, 0, Math.PI*2, false); shape.holes.push(hole);
-        const geo = new THREE.ExtrudeGeometry(shape, { depth: BODY_THICKNESS, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 4 });
-        geo.center();
-        const mesh = new THREE.Mesh(geo, matBase);
-        mesh.castShadow = true; mesh.receiveShadow = true;
-        mesh.rotation.x = -Math.PI / 2;
-        return mesh;
-    }
+        if (c === input.value) btn.classList.add('selected');
 
-    function generateDesign() {
-        if (!currentFont) return;
-        matText.color.set(ui.colorText.value);
-        matBase.color.set(ui.colorBody.value);
+        btn.onclick = () => {
+            container.querySelectorAll('.color-circle')
+                .forEach(b => b.classList.remove('selected'));
 
-        while (mainGroup.children.length > 0) {
-            const obj = mainGroup.children[0];
-            if (obj.geometry) obj.geometry.dispose();
-            mainGroup.remove(obj);
-        }
+            container.querySelectorAll(`.color-circle[data-color="${c}"]`)
+                .forEach(b => b.classList.add('selected'));
 
-        const textStr = (ui.name.value || ' ').toUpperCase();
-        const rotVal = parseFloat(ui.rot.value);
-        const gapRatio = parseFloat(ui.gap.value);
-        const altHeightVal = parseFloat(ui.altHeight.value);
-        
-        // Quinconce horizontal (décalage alterné sur l'axe Z)
-        const swayVal = ui.sway ? parseFloat(ui.sway.value) : 0;
-        const SWAY_MAX = LETTER_HEIGHT * 0.3;
-
-        const lettersGroup = new THREE.Group();
-        let currentX = 0;
-
-        for (let i = 0; i < textStr.length; i++) {
-            const char = textStr[i];
-            if(char === ' ') { currentX += LETTER_HEIGHT * 0.5; continue; }
-
-            // LOGIQUE HAUTEUR "BALANCE"
-            const BASE_H = 2.5;
-            const AMPLITUDE = 1.5; 
-            let extra = 0;
-            
-            if(altHeightVal !== 0) {
-                const factor = Math.abs(altHeightVal) * AMPLITUDE;
-                if(i % 2 === 0) {
-                    extra = (altHeightVal < 0) ? factor : -factor * 0.5; 
-                } else {
-                    extra = (altHeightVal > 0) ? factor : -factor * 0.5;
-                }
-            }
-            
-            let finalH = BASE_H + extra;
-            if(finalH < 0.5) finalH = 0.5;
-
-            const textGeo = new TextGeometry(char, {
-                font: currentFont, size: LETTER_HEIGHT, height: finalH,
-                curveSegments: 4, bevelEnabled: true, bevelThickness: 0.3, bevelSize: 0.2, bevelSegments: 2
-            });
-            textGeo.computeBoundingBox();
-            const xSize = textGeo.boundingBox.max.x - textGeo.boundingBox.min.x;
-            const ySize = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
-            textGeo.translate(-xSize/2, -ySize/2, 0);
-            
-            const mesh = new THREE.Mesh(textGeo, matText);
-            mesh.rotation.x = -Math.PI / 2;
-            mesh.rotation.z = (i % 2 === 0) ? rotVal : -rotVal;
-
-            // Décalage en quinconce sur l'axe Z (une lettre vers toi, une lettre vers l'autre côté)
-            const offsetZ = SWAY_MAX * swayVal * (i % 2 === 0 ? 1 : -1);
-
-            mesh.position.set(currentX + xSize/2, BODY_THICKNESS, offsetZ);
-            mesh.castShadow = true; mesh.receiveShadow = true;
-            lettersGroup.add(mesh);
-            currentX += (xSize * gapRatio) + (LETTER_HEIGHT * 0.1);
-        }
-
-        const contentGroup = new THREE.Group();
-        contentGroup.add(lettersGroup);
-
-        const symType = ui.symbol.value;
-        if (symType !== 'none') {
-            const symMesh = createSymbolMesh(symType);
-            if (symMesh) {
-                const lettersBox = new THREE.Box3().setFromObject(lettersGroup);
-                let lettersMaxX = lettersBox.isEmpty() ? 0 : lettersBox.max.x;
-                const symBox = new THREE.Box3().setFromObject(symMesh);
-                const symW = symBox.max.x - symBox.min.x;
-                symMesh.position.set(lettersMaxX + (LETTER_HEIGHT * 0.6) + symW/2, BODY_THICKNESS, 0);
-                contentGroup.add(symMesh);
-            }
-        }
-
-        const contentBox = new THREE.Box3().setFromObject(contentGroup);
-        const contentW = contentBox.isEmpty() ? 10 : (contentBox.max.x - contentBox.min.x);
-        const baseW = contentW + 20;
-        const baseZ = LETTER_HEIGHT + 16;
-        const baseMesh = createBaseMesh(baseW, baseZ);
-        const centerX = contentBox.isEmpty() ? 0 : (contentBox.min.x + contentW / 2);
-        baseMesh.position.set(centerX, BODY_THICKNESS/2, 0); 
-
-        const fullPiece = new THREE.Group();
-        fullPiece.add(baseMesh);
-        fullPiece.add(contentGroup);
-
-        if (ui.keychain.value === 'left_eyelet') {
-            const eyelet = createKeychainEyelet(baseW, baseZ);
-            const leftEdgeX = centerX - (baseW / 2);
-            eyelet.position.set(leftEdgeX - 1, BODY_THICKNESS/2, 0);
-            fullPiece.add(eyelet);
-        }
-
-        const box = new THREE.Box3().setFromObject(fullPiece);
-        if (!box.isEmpty()) {
-            const center = new THREE.Vector3();
-            box.getCenter(center);
-            fullPiece.position.sub(center);
-            const newBox = new THREE.Box3().setFromObject(fullPiece);
-            fullPiece.position.y -= newBox.min.y;
-        }
-        mainGroup.add(fullPiece);
-    }
-
-    function changeFont(key) {
-        ui.loader.style.opacity = 1;
-        fontLoader.load(fontsDB[key], (font) => {
-            currentFont = font;
+            input.value = c;
             generateDesign();
-            ui.loader.style.opacity = 0;
-            const box = new THREE.Box3().setFromObject(mainGroup);
-            if (!box.isEmpty()) {
-                const size = new THREE.Vector3(); box.getSize(size);
-                const max = Math.max(size.x, size.y, size.z);
-                controls.minDistance = max;
-                fitCameraToSelection(mainGroup, controls, 1.3);
-            }
+        };
+        container.appendChild(btn);
+    });
+}
+
+/* ---------------------------------------------------------------------------------
+    🚀 VRAI CARROUSEL INFINI PREMIUM
+--------------------------------------------------------------------------------- */
+
+function setupInfiniteScroller(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    // On récupère les items **sans les supprimer**
+    const originalItems = Array.from(container.children);
+    if (originalItems.length === 0) return;
+
+    // Calculer la largeur d'un item (avec marges)
+    function itemFullWidth(el) {
+        const style = getComputedStyle(el);
+        return el.offsetWidth +
+            parseFloat(style.marginLeft) +
+            parseFloat(style.marginRight);
+    }
+
+    // Largeur totale du bloc d'origine
+    let originalWidth = originalItems.reduce((sum, el) => sum + itemFullWidth(el), 0);
+
+    // Assurer assez de contenu pour un scroll infini
+    while (container.scrollWidth < container.clientWidth * 3) {
+        originalItems.forEach(item => {
+            const clone = item.cloneNode(true);
+
+            // garder les dataset
+            if (item.dataset.val) clone.dataset.val = item.dataset.val;
+            if (item.dataset.color) clone.dataset.color = item.dataset.color;
+
+            // garder l'onclick
+            if (item.onclick) clone.onclick = item.onclick;
+
+            container.appendChild(clone);
         });
     }
 
-    ui.exportBtn.onclick = () => {
-        if (mainGroup.children.length === 0) return;
-        const exporter = new STLExporter();
-        const result = exporter.parse(mainGroup, { binary: true });
-        const cleanName = (ui.name.value || 'MODEL').replace(/[^a-zA-Z0-9]/g, '_');
-        const blob = new Blob([result], { type: 'application/octet-stream' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `${cleanName}.stl`;
-        link.click();
-    };
+    // Positionner le scroll au centre du bloc
+    container.scrollLeft = originalWidth;
 
-    window.addEventListener('resize', () => {
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
+    // Wrap propre (sans avalanche)
+    container.addEventListener('scroll', () => {
+        const x = container.scrollLeft;
+
+        if (x < originalWidth * 0.5) {
+            container.scrollLeft = x + originalWidth;
+        } else if (x > originalWidth * 1.5) {
+            container.scrollLeft = x - originalWidth;
+        }
     });
+}
+
+
+/* ---------------------------------------------------------------------------------
+    INITIALISATION DES LISTES
+--------------------------------------------------------------------------------- */
+
+setupSelector('font-selector', 'val-font', changeFont);
+setupSelector('symbol-selector', 'val-symbol');
+
+buildPalette('palette-body', 'val-color-body', COLORS_BODY);
+buildPalette('palette-text', 'val-color-text', COLORS_TEXT);
+
+setupInfiniteScroller('font-selector');
+setupInfiniteScroller('palette-body');
+setupInfiniteScroller('palette-text');
+setupInfiniteScroller('symbol-selector');
+/* ---------------------------------------------------------------------------------
+    3D – CAMERA FIT
+--------------------------------------------------------------------------------- */
+
+function fitCameraToSelection(object, controls, paddingFactor = 1.2) {
+    const box = new THREE.Box3().setFromObject(object);
+    if (box.isEmpty()) return;
+
+    const size = new THREE.Vector3();
+    box.getSize(size);
+
+    const halfSize = Math.max(size.x, size.y, size.z) / 2;
+    const halfFovY = THREE.MathUtils.degToRad(camera.fov / 2);
+
+    let distance = halfSize / Math.tan(halfFovY);
+    distance *= paddingFactor;
+
+    controls.dollyTo(distance);
+    controls.update();
+    camera.updateProjectionMatrix();
+}
+
+/* ---------------------------------------------------------------------------------
+    INPUTS (sliders)
+--------------------------------------------------------------------------------- */
+
+ui.gap.addEventListener('input', () => {
+    generateDesign();
+    fitCameraToSelection(mainGroup, controls, 1.3);
+});
+
+[ui.rot, ui.altHeight, ui.sway].forEach(el =>
+    el.addEventListener('input', generateDesign)
+);
+
+ui.name.addEventListener('input', generateDesign);
+
+/* ---------------------------------------------------------------------------------
+    3D – GÉNÉRATION DE LA PIÈCE
+--------------------------------------------------------------------------------- */
+
+let currentFont = null;
+const fontLoader = new FontLoader();
+
+const fontsDB = {
+    cherry: './cherry.json',
+    chango: './chango.json',
+    lucky: './lucky.json'
+};
+
+function createSymbolMesh(type) {
+    const r = LETTER_HEIGHT * SYMBOL_RADIUS_FACTOR;
+
+    let shape = new THREE.Shape();
+
+    if (type === 'star') {
+        const inner = r * 0.45;
+        for (let i = 0; i < 10; i++) {
+            const ang = (i / 10) * Math.PI * 2 - Math.PI / 2;
+            const rad = (i % 2 === 0) ? r : inner;
+            const x = Math.cos(ang) * rad;
+            const y = Math.sin(ang) * rad;
+            i === 0 ? shape.moveTo(x, y) : shape.lineTo(x, y);
+        }
+        shape.closePath();
+    }
+    else if (type === 'heart') {
+        const x = 0, y = -r * 0.3;
+        shape.moveTo(x, y + r * 0.6);
+        shape.bezierCurveTo(x + r, y + r * 1.4, x + r * 1.6, y, x, y - r);
+        shape.bezierCurveTo(x - r * 1.6, y, x - r, y + r * 1.4, x, y + r * 0.6);
+    }
+    else if (type === 'crown') {
+        shape.moveTo(-r, -r * 0.5);
+        shape.lineTo(-r, r * 0.2);
+        shape.lineTo(-r * 0.5, -r * 0.2);
+        shape.lineTo(0, r * 0.5);
+        shape.lineTo(r * 0.5, -r * 0.2);
+        shape.lineTo(r, r * 0.2);
+        shape.lineTo(r, -r * 0.5);
+        shape.closePath();
+    }
+    else if (type === 'cat') {
+        shape.moveTo(-r * 0.8, -r * 0.6);
+        shape.lineTo(r * 0.8, -r * 0.6);
+        shape.quadraticCurveTo(r, -r * 0.6, r, -r * 0.4);
+        shape.lineTo(r, 0);
+        shape.lineTo(r * 0.8, r * 0.8);
+        shape.lineTo(r * 0.3, 0.4 * r);
+        shape.lineTo(-r * 0.3, 0.4 * r);
+        shape.lineTo(-r * 0.8, r * 0.8);
+        shape.lineTo(-r, 0);
+        shape.lineTo(-r, -r * 0.4);
+        shape.quadraticCurveTo(-r, -r * 0.6, -r * 0.8, -r * 0.6);
+    }
+    else return null;
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: SYMBOL_EXTRUSION,
+        bevelEnabled: false
+    });
+    geo.center();
+
+    const mesh = new THREE.Mesh(geo, matText);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    return mesh;
+}
+
+function createBaseMesh(width, depth) {
+    const shape = new THREE.Shape();
+    const r = 3;
+    const w2 = width / 2, h2 = depth / 2;
+
+    shape.moveTo(-w2 + r, -h2);
+    shape.lineTo(w2 - r, -h2);
+    shape.quadraticCurveTo(w2, -h2, w2, -h2 + r);
+    shape.lineTo(w2, h2 - r);
+    shape.quadraticCurveTo(w2, h2, w2 - r, h2);
+    shape.lineTo(-w2 + r, h2);
+    shape.quadraticCurveTo(-w2, h2, -w2, h2 - r);
+    shape.lineTo(-w2, -h2 + r);
+    shape.quadraticCurveTo(-w2, -h2, -w2 + r, -h2);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: BODY_THICKNESS,
+        bevelEnabled: true,
+        bevelThickness: 0.5,
+        bevelSize: 0.5,
+        bevelSegments: 4
+    });
+
+    geo.center();
+
+    const mesh = new THREE.Mesh(geo, matBase);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    return mesh;
+}
+
+function createKeychainEyelet(width, depth) {
+    const tabRadius = 5;
+    const shape = new THREE.Shape();
+
+    shape.moveTo(0, -tabRadius);
+    shape.lineTo(tabRadius * 1.5, -tabRadius);
+    shape.lineTo(tabRadius * 1.5, tabRadius);
+    shape.lineTo(0, tabRadius);
+    shape.absarc(0, 0, tabRadius, Math.PI / 2, -Math.PI / 2, false);
+
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, tabRadius * 0.45, 0, Math.PI * 2, false);
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+        depth: BODY_THICKNESS,
+        bevelEnabled: true,
+        bevelThickness: 0.5,
+        bevelSize: 0.5,
+        bevelSegments: 4
+    });
+
+    geo.center();
+
+    const mesh = new THREE.Mesh(geo, matBase);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    return mesh;
+}
+
+function generateDesign() {
+    if (!currentFont) return;
+
+    matText.color.set(ui.colorText.value);
+    matBase.color.set(ui.colorBody.value);
+
+    while (mainGroup.children.length) {
+        const obj = mainGroup.children[0];
+        if (obj.geometry) obj.geometry.dispose();
+        mainGroup.remove(obj);
+    }
+
+    const textStr = (ui.name.value || ' ').toUpperCase();
+
+    const rotVal = parseFloat(ui.rot.value);
+    const gapRatio = parseFloat(ui.gap.value);
+    const altHeightVal = parseFloat(ui.altHeight.value);
+
+    const swayVal = parseFloat(ui.sway.value || 0);
+    const SWAY_MAX = LETTER_HEIGHT * 0.3;
+
+    const lettersGroup = new THREE.Group();
+    let currentX = 0;
+
+    for (let i = 0; i < textStr.length; i++) {
+        const char = textStr[i];
+        if (char === ' ') {
+            currentX += LETTER_HEIGHT * 0.5;
+            continue;
+        }
+
+        const BASE_H = 2.5;
+        const AMPLITUDE = 1.5;
+        let extra = 0;
+
+        if (altHeightVal !== 0) {
+            const factor = Math.abs(altHeightVal) * AMPLITUDE;
+            extra = (i % 2 === 0)
+                ? (altHeightVal < 0 ? factor : -factor * 0.5)
+                : (altHeightVal > 0 ? factor : -factor * 0.5);
+        }
+
+        let finalH = BASE_H + extra;
+        if (finalH < 0.5) finalH = 0.5;
+
+        const textGeo = new TextGeometry(char, {
+            font: currentFont,
+            size: LETTER_HEIGHT,
+            height: finalH,
+            curveSegments: 4,
+            bevelEnabled: true,
+            bevelThickness: 0.3,
+            bevelSize: 0.2,
+            bevelSegments: 2
+        });
+
+        textGeo.computeBoundingBox();
+        const xSize = textGeo.boundingBox.max.x - textGeo.boundingBox.min.x;
+        const ySize = textGeo.boundingBox.max.y - textGeo.boundingBox.min.y;
+        textGeo.translate(-xSize / 2, -ySize / 2, 0);
+
+        const mesh = new THREE.Mesh(textGeo, matText);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.rotation.z = (i % 2 === 0) ? rotVal : -rotVal;
+
+        const offsetZ = SWAY_MAX * swayVal * (i % 2 === 0 ? 1 : -1);
+
+        mesh.position.set(currentX + xSize / 2, BODY_THICKNESS, offsetZ);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+
+        lettersGroup.add(mesh);
+        currentX += (xSize * gapRatio) + (LETTER_HEIGHT * 0.1);
+    }
+
+    const contentGroup = new THREE.Group();
+    contentGroup.add(lettersGroup);
+
+    if (ui.symbol.value !== 'none') {
+        const symMesh = createSymbolMesh(ui.symbol.value);
+        if (symMesh) {
+            const lettersBox = new THREE.Box3().setFromObject(lettersGroup);
+            const lettersMaxX = lettersBox.max.x;
+            const symBox = new THREE.Box3().setFromObject(symMesh);
+            const symW = symBox.max.x - symBox.min.x;
+
+            symMesh.position.set(
+                lettersMaxX + (LETTER_HEIGHT * 0.6) + symW / 2,
+                BODY_THICKNESS,
+                0
+            );
+            contentGroup.add(symMesh);
+        }
+    }
+
+    const contentBox = new THREE.Box3().setFromObject(contentGroup);
+    const contentW = contentBox.max.x - contentBox.min.x;
+    const baseW = contentW + 20;
+    const baseZ = LETTER_HEIGHT + 16;
+
+    const baseMesh = createBaseMesh(baseW, baseZ);
+    const centerX = contentBox.min.x + contentW / 2;
+
+    baseMesh.position.set(centerX, BODY_THICKNESS / 2, 0);
+
+    const fullPiece = new THREE.Group();
+    fullPiece.add(baseMesh);
+    fullPiece.add(contentGroup);
+
+    if (ui.keychain.value === 'left_eyelet') {
+        const eyelet = createKeychainEyelet(baseW, baseZ);
+        const leftEdgeX = centerX - (baseW / 2);
+        eyelet.position.set(leftEdgeX - 1, BODY_THICKNESS / 2, 0);
+        fullPiece.add(eyelet);
+    }
+
+    const box = new THREE.Box3().setFromObject(fullPiece);
+    if (!box.isEmpty()) {
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        fullPiece.position.sub(center);
+
+        const newBox = new THREE.Box3().setFromObject(fullPiece);
+        fullPiece.position.y -= newBox.min.y;
+    }
+
+    mainGroup.add(fullPiece);
+}
+
+/* ---------------------------------------------------------------------------------
+    CHARGEMENT DES POLICES
+--------------------------------------------------------------------------------- */
+
+function changeFont(key) {
+    ui.loader.style.opacity = 1;
+    fontLoader.load(fontsDB[key], (font) => {
+        currentFont = font;
+        generateDesign();
+        ui.loader.style.opacity = 0;
+
+        const box = new THREE.Box3().setFromObject(mainGroup);
+        if (!box.isEmpty()) {
+            const size = new THREE.Vector3();
+            box.getSize(size);
+            const max = Math.max(size.x, size.y, size.z);
+            controls.minDistance = max;
+            fitCameraToSelection(mainGroup, controls, 1.3);
+        }
+    });
+}
+
+/* ---------------------------------------------------------------------------------
+    EXPORT STL
+--------------------------------------------------------------------------------- */
+
+ui.exportBtn.onclick = () => {
+    if (!mainGroup.children.length) return;
+
+    const exporter = new STLExporter();
+    const result = exporter.parse(mainGroup, { binary: true });
+
+    const cleanName = (ui.name.value || "MODEL").replace(/[^a-zA-Z0-9]/g, '_');
+    const blob = new Blob([result], { type: 'application/octet-stream' });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${cleanName}.stl`;
+    link.click();
+};
+
+/* ---------------------------------------------------------------------------------
+    RESIZE
+--------------------------------------------------------------------------------- */
+
+window.addEventListener('resize', () => {
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+});
+
+/* ---------------------------------------------------------------------------------
+    RENDER LOOP
+--------------------------------------------------------------------------------- */
 
 renderer.setAnimationLoop(() => {
     controls.update();
     renderer.render(scene, camera);
 });
 
-    changeFont('cherry');
-    updateStep();
-    animate();
+/* ---------------------------------------------------------------------------------
+    START
+--------------------------------------------------------------------------------- */
 
+changeFont('cherry');
+updateStep();
 </script>
+
+
+
+
 </body>
 </html>
